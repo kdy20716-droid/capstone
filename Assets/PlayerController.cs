@@ -89,7 +89,7 @@ public class PlayerController : MonoBehaviour
 #endif
 
         // 1. 좌우 이동
-        transform.Translate(Vector3.right * -moveInput * moveSpeed * Time.deltaTime);
+        transform.Translate(Vector3.right * moveInput * moveSpeed * Time.deltaTime);
 
         // 2. 캐릭터 모델 위치 동기화 (바닥 고정)
         if (characterModel != null)
