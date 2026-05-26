@@ -8,7 +8,7 @@ public class Ball : MonoBehaviour
 
     [Header("Bounce Settings")]
     // 공이 바닥에 닿았을 때 항상 튀어오를 고정 높이
-    public float fixedBounceHeight = 2.0f; 
+    public float fixedBounceHeight = 1.0f; 
 
     private Rigidbody rb;
 

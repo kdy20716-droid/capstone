@@ -57,7 +57,8 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        float moveInput = 0f;
+        float moveX = 0f;
+        float moveZ = 0f;
         bool inputActionTriggered = false;
 
         // --- 입력 처리 ---
@@ -68,11 +69,14 @@ public class PlayerController : MonoBehaviour
             inputActionTriggered = true;
         }
 
-        // 2. 키보드 보조 (A/D 이동 및 Space/A키 토스)
+        // 2. 키보드 보조 (WASD 이동 및 Space/A키 토스)
         if (Keyboard.current != null)
         {
-            if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) moveInput = -1f;
-            else if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) moveInput = 1f;
+            if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) moveX = -1f;
+            else if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) moveX = 1f;
+
+            if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed) moveZ = 1f;
+            else if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed) moveZ = -1f;
             
             if (Keyboard.current.spaceKey.wasPressedThisFrame || Keyboard.current.aKey.wasPressedThisFrame) inputActionTriggered = true;
         }
@@ -84,12 +88,14 @@ public class PlayerController : MonoBehaviour
         if (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame) inputActionTriggered = true;
 #else
         // 레거시 Input
-        moveInput = Input.GetAxis("Horizontal");
+        moveX = Input.GetAxis("Horizontal");
+        moveZ = Input.GetAxis("Vertical");
         if (Input.GetButtonDown("Fire1") || Input.GetKeyDown(KeyCode.Space)) inputActionTriggered = true;
 #endif
 
-        // 1. 좌우 이동
-        transform.Translate(Vector3.right * moveInput * moveSpeed * Time.deltaTime);
+        // 1. 이동 처리 (WASD)
+        Vector3 moveDir = new Vector3(moveX, 0, moveZ);
+        transform.Translate(moveDir * moveSpeed * Time.deltaTime);
 
         // 2. 캐릭터 모델 위치 동기화 (바닥 고정)
         if (characterModel != null)
