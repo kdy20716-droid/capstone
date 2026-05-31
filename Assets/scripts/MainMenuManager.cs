@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class MainMenuManager : MonoBehaviour
 {
@@ -13,33 +14,46 @@ public class MainMenuManager : MonoBehaviour
 
     void Start()
     {
-        // 시작 시 메인 메뉴만 켜고, 조작법 패널은 끕니다.
+        // 런타임에 버튼들을 자동으로 찾아서 클릭 이벤트를 연결합니다. (에디터 노가다 방지)
+        Button[] allButtons = Resources.FindObjectsOfTypeAll<Button>();
+        foreach (Button btn in allButtons)
+        {
+            if (btn.name == "StartButton") btn.onClick.AddListener(StartGame);
+            else if (btn.name == "ControlsButton") btn.onClick.AddListener(ShowControls);
+            else if (btn.name == "BackButton") btn.onClick.AddListener(CloseControls);
+            else if (btn.name == "QuitButton") btn.onClick.AddListener(QuitGame);
+        }
+
+        // 초기 화면 설정
         if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
         if (controlsPanel != null) controlsPanel.SetActive(false);
     }
 
-    // [시작] 버튼
     public void StartGame()
     {
-        Debug.Log("게임 씬으로 이동합니다!");
-        SceneManager.LoadScene(gameSceneName);
+        Debug.Log($"Attempting to load scene: {gameSceneName}");
+        if (Application.CanStreamedLevelBeLoaded(gameSceneName))
+        {
+            SceneManager.LoadScene(gameSceneName);
+        }
+        else
+        {
+            Debug.LogError($"Cannot load scene '{gameSceneName}'. Please check if the name is correct and if it's added to Build Settings.");
+        }
     }
 
-    // [조작 방법] 버튼
     public void ShowControls()
     {
         if (mainMenuPanel != null) mainMenuPanel.SetActive(false);
         if (controlsPanel != null) controlsPanel.SetActive(true);
     }
 
-    // [조작 방법 패널 닫기 (뒤로가기)] 버튼
     public void CloseControls()
     {
         if (controlsPanel != null) controlsPanel.SetActive(false);
         if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
     }
 
-    // [나가기] 버튼
     public void QuitGame()
     {
         Debug.Log("게임을 종료합니다.");
