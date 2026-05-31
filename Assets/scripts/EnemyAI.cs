@@ -27,6 +27,9 @@ public class EnemyAI : MonoBehaviour
 
     void Update()
     {
+        // 게임이 시작되지 않았으면 AI 정지
+        if (GameManager.Instance != null && !GameManager.Instance.isGameStarted) return;
+
         if (currentBall == null) return;
 
         Rigidbody ballRb = currentBall.GetComponent<Rigidbody>();

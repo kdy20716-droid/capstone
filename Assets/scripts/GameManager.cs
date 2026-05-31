@@ -7,6 +7,10 @@ public class GameManager : MonoBehaviour
 
     [Header("UI Settings")]
     public TextMeshProUGUI scoreText;
+    [Tooltip("캐릭터/라켓 선택 UI 패널")]
+    public GameObject selectionUI; 
+
+    public bool isGameStarted = false;
 
     private int playerPoints = 0;
     private int enemyPoints = 0;
@@ -22,6 +26,14 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         UpdateScoreUI();
+        if (selectionUI != null) selectionUI.SetActive(true);
+    }
+
+    public void GameStart()
+    {
+        isGameStarted = true;
+        if (selectionUI != null) selectionUI.SetActive(false);
+        Debug.Log("캐릭터/라켓 선택 완료, 게임 시작!");
     }
 
     public void AddPoint(bool isPlayer)

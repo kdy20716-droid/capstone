@@ -57,6 +57,9 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        // 게임이 시작되지 않았으면 조작 불가
+        if (GameManager.Instance != null && !GameManager.Instance.isGameStarted) return;
+
         float moveX = 0f;
         float moveZ = 0f;
         bool inputActionTriggered = false;
