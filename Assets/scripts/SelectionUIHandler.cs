@@ -13,7 +13,8 @@ public class SelectionUIHandler : MonoBehaviour
             else if (btn.name == "CharNextBtn") btn.onClick.AddListener(() => GameManager.Instance.NextCharacter());
             else if (btn.name == "RacketPrevBtn") btn.onClick.AddListener(() => GameManager.Instance.PrevRacket());
             else if (btn.name == "RacketNextBtn") btn.onClick.AddListener(() => GameManager.Instance.NextRacket());
-            else if (btn.name == "PlayBtn") btn.onClick.AddListener(() => GameManager.Instance.GameStart());
+            else if (btn.name == "PlayBtn") btn.onClick.AddListener(() => GameManager.Instance.GameStart(false));
+            else if (btn.name == "VRPlayBtn") btn.onClick.AddListener(() => GameManager.Instance.GameStart(true));
         }
     }
 }

@@ -7,18 +7,30 @@ public class GameManager : MonoBehaviour
 
     [Header("UI Settings")]
     public TextMeshProUGUI scoreText;
+    [Header("Selection UI References")]
     public GameObject selectionUI; 
-    public SelectionCameraHandler cameraHandler;
+    public UnityEngine.UI.Image charImageDisplay;   // 캐릭터 이미지 표시용
+    public UnityEngine.UI.Image racketImageDisplay; // 라켓 이미지 표시용
+    
+    [Header("Camera Settings")]
+    public GameObject selectionCamera; 
+    public GameObject playCamera;      
+    public SelectionCameraHandler cameraHandler; 
 
-    [Header("Selection Lists")]
-    public GameObject[] characterPrefabs; // 인스펙터에서 캐릭터 오브젝트들을 넣어주세요
-    public GameObject[] racketPrefabs;    // 인스펙터에서 라켓 오브젝트들을 넣어주세요
+    [Header("Player Rigs")]
+    public GameObject pcPlayerRig; // PC용 플레이어 오브젝트
+    public GameObject vrPlayerRig; // VR용 XR Origin 오브젝트
+
+    [Header("Selection Assets (Sprites)")]
+    public Sprite[] characterSprites; // 캐릭터 이미지들
+    public Sprite[] racketSprites;    // 라켓 이미지들
 
     [Header("Player Selection Result")]
     public int selectedCharacterIndex = 0;
     public int selectedRacketIndex = 0;
 
     public bool isGameStarted = false;
+    public bool isVRMode = false;
 
     private int playerPoints = 0;
     private int enemyPoints = 0;
@@ -34,62 +46,112 @@ public class GameManager : MonoBehaviour
     void Start()
     {
         UpdateScoreUI();
+        if (scoreText != null) scoreText.gameObject.SetActive(false);
+        
+        if (selectionCamera != null) selectionCamera.SetActive(true);
+        if (playCamera != null) playCamera.SetActive(false);
+        
+        // 리그 전환용 초기화
+        if (pcPlayerRig != null) pcPlayerRig.SetActive(false);
+        if (vrPlayerRig != null) vrPlayerRig.SetActive(false);
+
         if (selectionUI != null) selectionUI.SetActive(true);
         UpdateSelectionVisuals();
     }
 
     public void NextCharacter()
     {
-        selectedCharacterIndex = (selectedCharacterIndex + 1) % characterPrefabs.Length;
+        if (characterSprites.Length == 0) return;
+        selectedCharacterIndex = (selectedCharacterIndex + 1) % characterSprites.Length;
         UpdateSelectionVisuals();
     }
 
     public void PrevCharacter()
     {
+        if (characterSprites.Length == 0) return;
         selectedCharacterIndex--;
-        if (selectedCharacterIndex < 0) selectedCharacterIndex = characterPrefabs.Length - 1;
+        if (selectedCharacterIndex < 0) selectedCharacterIndex = characterSprites.Length - 1;
         UpdateSelectionVisuals();
     }
 
     public void NextRacket()
     {
-        selectedRacketIndex = (selectedRacketIndex + 1) % racketPrefabs.Length;
+        if (racketSprites.Length == 0) return;
+        selectedRacketIndex = (selectedRacketIndex + 1) % racketSprites.Length;
         UpdateSelectionVisuals();
     }
 
     public void PrevRacket()
     {
+        if (racketSprites.Length == 0) return;
         selectedRacketIndex--;
-        if (selectedRacketIndex < 0) selectedRacketIndex = racketPrefabs.Length - 1;
+        if (selectedRacketIndex < 0) selectedRacketIndex = racketSprites.Length - 1;
         UpdateSelectionVisuals();
     }
 
     void UpdateSelectionVisuals()
     {
-        // 캐릭터들 중 선택된 것만 켭니다
-        for (int i = 0; i < characterPrefabs.Length; i++)
+        if (characterSprites.Length > 0 && charImageDisplay != null)
         {
-            if (characterPrefabs[i] != null) characterPrefabs[i].SetActive(i == selectedCharacterIndex);
+            charImageDisplay.sprite = characterSprites[selectedCharacterIndex];
         }
-        // 라켓들 중 선택된 것만 켭니다
-        for (int i = 0; i < racketPrefabs.Length; i++)
+        if (racketSprites.Length > 0 && racketImageDisplay != null)
         {
-            if (racketPrefabs[i] != null) racketPrefabs[i].SetActive(i == selectedRacketIndex);
+            racketImageDisplay.sprite = racketSprites[selectedRacketIndex];
         }
+    }
+
+    public void GameStart(bool useVR)
+    {
+        Debug.Log($"[GameManager] GameStart Called. VR Mode: {useVR}");
         
-        Debug.Log($"Selection Updated: Char {selectedCharacterIndex}, Racket {selectedRacketIndex}");
+        isGameStarted = true;
+        isVRMode = useVR;
+
+        if (selectionUI != null) 
+        {
+            selectionUI.SetActive(false);
+            Debug.Log("[GameManager] Selection UI Hidden.");
+        }
+        else Debug.LogWarning("[GameManager] Selection UI is NULL!");
+
+        // 카메라 전환
+        if (selectionCamera != null) selectionCamera.SetActive(false);
+        if (playCamera != null) 
+        {
+            playCamera.SetActive(!isVRMode);
+            Debug.Log($"[GameManager] Play Camera SetActive: {!isVRMode}");
+        }
+
+        // 리그 전환
+        if (pcPlayerRig != null) 
+        {
+            pcPlayerRig.SetActive(!isVRMode);
+            Debug.Log($"[GameManager] PC Rig SetActive: {!isVRMode}");
+        }
+        else Debug.LogWarning("[GameManager] PC Player Rig is NULL!");
+
+        if (vrPlayerRig != null) 
+        {
+            vrPlayerRig.SetActive(isVRMode);
+            Debug.Log($"[GameManager] VR Rig SetActive: {isVRMode}");
+        }
+        else if (isVRMode) Debug.LogError("[GameManager] VR Mode selected but VR Rig is NULL!");
+
+        if (cameraHandler != null) cameraHandler.StopOrbiting();
+        
+        if (scoreText != null) 
+        {
+            scoreText.gameObject.SetActive(true);
+            UpdateScoreUI();
+        }
+
+        Debug.Log($"[GameManager] Game Successfully Started! Mode: {(isVRMode ? "VR" : "PC")}");
     }
 
     public void GameStart()
     {
-        isGameStarted = true;
-        if (selectionUI != null) selectionUI.SetActive(false);
-        if (cameraHandler != null) cameraHandler.StopOrbiting();
-        
-        // 게임 시작 시 점수 UI 표시
-        if (scoreText != null) scoreText.gameObject.SetActive(true);
-        
-        Debug.Log("캐릭터/라켓 선택 완료, 게임 시작!");
+        GameStart(false);
     }
 
     public void AddPoint(bool isPlayer)

@@ -58,55 +58,108 @@ public class UIGenerator : EditorWindow
     }
 
     // --- 아래는 UI 요소를 코드로 예쁘게 만들어주는 도우미 함수들입니다 ---
-
-    [MenuItem("Tools/Auto Generate Selection UI")]
-    public static void GenerateSelectionUI()
+[MenuItem("Tools/Auto Generate Selection UI")]
+public static void GenerateSelectionUI()
+{
+    // 1. Force Check EventSystem
+    if (Object.FindFirstObjectByType<EventSystem>() == null)
     {
-        // 1. Get or Create Canvas
-        Canvas canvas = Object.FindFirstObjectByType<Canvas>();
-        GameObject canvasObj;
-        if (canvas == null)
+        GameObject eventSystem = new GameObject("EventSystem");
+        eventSystem.AddComponent<EventSystem>();
+        eventSystem.AddComponent<StandaloneInputModule>();
+        Debug.Log("Created missing EventSystem.");
+    }
+
+    // 2. Get or Create Canvas
+    Canvas canvas = Object.FindFirstObjectByType<Canvas>();
+    GameObject canvasObj;
+    if (canvas == null)
+    {
+        canvasObj = new GameObject("SelectionCanvas");
+        canvas = canvasObj.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvasObj.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        canvasObj.AddComponent<GraphicRaycaster>();
+    }
+    else
+    {
+        canvasObj = canvas.gameObject;
+        if (canvasObj.GetComponent<GraphicRaycaster>() == null)
         {
-            canvasObj = new GameObject("SelectionCanvas");
-            canvas = canvasObj.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasObj.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             canvasObj.AddComponent<GraphicRaycaster>();
+            Debug.Log("Added missing GraphicRaycaster to Canvas.");
         }
-        else
-        {
-            canvasObj = canvas.gameObject;
-        }
+    }
 
-        // 2. Create Selection Panel (Transparent background)
-        GameObject selectionPanel = CreatePanel(canvasObj.transform, "SelectionPanel", new Color(0, 0, 0, 0.2f));
-        CreateText(selectionPanel.transform, "SelectionTitle", "SELECT YOUR GEAR", new Vector2(0, 420), 60, Color.white);
+    // 3. Create Selection Panel
+    GameObject selectionPanel = CreatePanel(canvasObj.transform, "SelectionPanel", new Color(0, 0, 0, 0.7f));
+    // ... (rest of the creation logic stays the same)
+        CreateText(selectionPanel.transform, "SelectionTitle", "CHARACTER & RACKET SELECTION", new Vector2(0, 400), 70, Color.white);
 
-        // Character Selection Row (LEFT SIDE)
-        float leftX = -500f;
-        CreateText(selectionPanel.transform, "CharLabel", "CHARACTER", new Vector2(leftX, 150), 40, Color.yellow);
-        CreateButton(selectionPanel.transform, "CharPrevBtn", "<", new Vector2(leftX - 120, 50), new Vector2(80, 80)).name = "CharPrevBtn";
-        CreateButton(selectionPanel.transform, "CharNextBtn", ">", new Vector2(leftX + 120, 50), new Vector2(80, 80)).name = "CharNextBtn";
+        // --- CHARACTER SELECTION (LEFT SIDE) ---
+        float leftX = -450f;
+        float centerY = 0f;
+        CreateText(selectionPanel.transform, "CharLabel", "CHARACTER", new Vector2(leftX, 220), 40, Color.yellow);
+        CreateButton(selectionPanel.transform, "CharPrevBtn", "<", new Vector2(leftX - 220, centerY), new Vector2(80, 80)).name = "CharPrevBtn";
+        Image charImg = CreateDisplayImage(selectionPanel.transform, "CharImage", new Vector2(leftX, centerY), new Vector2(300, 300));
+        CreateButton(selectionPanel.transform, "CharNextBtn", ">", new Vector2(leftX + 220, centerY), new Vector2(80, 80)).name = "CharNextBtn";
 
-        // Racket Selection Row (RIGHT SIDE)
-        float rightX = 500f;
-        CreateText(selectionPanel.transform, "RacketLabel", "RACKET", new Vector2(rightX, 150), 40, Color.yellow);
-        CreateButton(selectionPanel.transform, "RacketPrevBtn", "<", new Vector2(rightX - 120, 50), new Vector2(80, 80)).name = "RacketPrevBtn";
-        CreateButton(selectionPanel.transform, "RacketNextBtn", ">", new Vector2(rightX + 120, 50), new Vector2(80, 80)).name = "RacketNextBtn";
+        // --- RACKET SELECTION (RIGHT SIDE) ---
+        float rightX = 450f;
+        CreateText(selectionPanel.transform, "RacketLabel", "RACKET", new Vector2(rightX, 220), 40, Color.yellow);
+        CreateButton(selectionPanel.transform, "RacketPrevBtn", "<", new Vector2(rightX - 220, centerY), new Vector2(80, 80)).name = "RacketPrevBtn";
+        Image racketImg = CreateDisplayImage(selectionPanel.transform, "RacketImage", new Vector2(rightX, centerY), new Vector2(300, 300));
+        CreateButton(selectionPanel.transform, "RacketNextBtn", ">", new Vector2(rightX + 220, centerY), new Vector2(80, 80)).name = "RacketNextBtn";
 
-        // Start Play Button (Smaller and at bottom)
-        CreateButton(selectionPanel.transform, "PlayBtn", "START", new Vector2(0, -400), new Vector2(300, 80)).name = "PlayBtn";
+        // Start Buttons (Center Bottom)
+        CreateButton(selectionPanel.transform, "PlayBtn", "PC START", new Vector2(-180, -400), new Vector2(250, 80)).name = "PlayBtn";
+        CreateButton(selectionPanel.transform, "VRPlayBtn", "VR START", new Vector2(180, -400), new Vector2(250, 80)).name = "VRPlayBtn";
 
         // 3. Link to GameManager
         GameManager gm = Object.FindFirstObjectByType<GameManager>();
         if (gm != null)
         {
             gm.selectionUI = selectionPanel;
+            gm.charImageDisplay = charImg;
+            gm.racketImageDisplay = racketImg;
             if (selectionPanel.GetComponent<SelectionUIHandler>() == null)
                 selectionPanel.AddComponent<SelectionUIHandler>();
         }
 
-        Debug.Log("🎉 [Success] Compact Selection UI generated! Character on Left, Racket on Right.");
+        Debug.Log("🎉 [Success] Side-by-Side 2D Selection UI generated!");
+    }
+
+    static Image CreateDisplayImage(Transform parent, string name, Vector2 pos, Vector2 size)
+    {
+        // 1. Background/Border Object
+        GameObject bgGo = new GameObject(name + "_Border");
+        bgGo.transform.SetParent(parent, false);
+        RectTransform bgRect = bgGo.AddComponent<RectTransform>();
+        bgRect.anchoredPosition = pos;
+        bgRect.sizeDelta = size + new Vector2(20, 20); // Border thickness
+        
+        Image bgImg = bgGo.AddComponent<Image>();
+        bgImg.color = Color.white; // Border color
+        bgImg.type = Image.Type.Sliced;
+        
+        // Try to find default UISprite for rounded corners
+        Sprite roundSprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+        if (roundSprite != null) bgImg.sprite = roundSprite;
+
+        // 2. Actual Image Object (Child of Border)
+        GameObject imgGo = new GameObject(name);
+        imgGo.transform.SetParent(bgGo.transform, false);
+        RectTransform imgRect = imgGo.AddComponent<RectTransform>();
+        imgRect.anchorMin = Vector2.zero;
+        imgRect.anchorMax = Vector2.one;
+        imgRect.sizeDelta = new Vector2(-10, -10); // Padding from border
+        
+        // Add Mask to clip the image to the rounded border
+        bgGo.AddComponent<Mask>().showMaskGraphic = true;
+
+        Image img = imgGo.AddComponent<Image>();
+        img.preserveAspect = true;
+        return img;
     }
 
     static GameObject CreatePanel(Transform parent, string name, Color color)

@@ -7,19 +7,15 @@ public class Ball : MonoBehaviour
     public float speed = 5f; 
 
     [Header("Bounce Settings")]
-    // 공이 바닥에 닿았을 때 항상 튀어오를 고정 높이
-    public float fixedBounceHeight = 1.0f; 
+    // 공이 바닥에 닿았을 때 항상 튀어오를 고정 높이 (기존 1.0 -> 0.6으로 낮춤)
+    public float fixedBounceHeight = 0.6f; 
 
     private Rigidbody rb;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        
-        // 정면(상대방)으로 향하는 벡터에, 위쪽(Up) 벡터를 더해 대각선 위로 발사합니다.
-        Vector3 lobDirection = (Vector3.forward + (Vector3.up * 1.5f)).normalized; 
-        
-        Launch(lobDirection);
+        // 자동 발사 로직 제거 (이제 PlayerController에서 관리함)
     }
 
     public void Launch(Vector3 direction)

@@ -27,18 +27,24 @@ public class PlayerController : MonoBehaviour
     public InputActionProperty tossAction; 
     #endif
     
+    [Header("VR Settings")]
+    public Transform vrLeftHand; // 왼손 위치 (공을 잡고 올릴 손)
+    public float vrTossThreshold = 0.5f; // 서브가 발동될 위쪽 속도 임계값
+    
     private bool isServing = true;     
     private bool isServeTossing = false; 
     private Ball currentBall;
+    private Vector3 lastHandPos;
 
     void Start()
     {
         FindBall();
         
-        // Input Action 활성화
         #if ENABLE_INPUT_SYSTEM
         if (tossAction.action != null) tossAction.action.Enable();
         #endif
+
+        if (vrLeftHand != null) lastHandPos = vrLeftHand.position;
     }
 
     void FindBall()
@@ -57,77 +63,75 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        // 게임이 시작되지 않았으면 조작 불가
-        if (GameManager.Instance != null && !GameManager.Instance.isGameStarted) return;
+        if (GameManager.Instance == null || !GameManager.Instance.isGameStarted) return;
 
-        float moveX = 0f;
-        float moveZ = 0f;
+        bool isVR = GameManager.Instance.isVRMode;
         bool inputActionTriggered = false;
 
-        // --- 입력 처리 ---
+        // 1. 입력 및 타격 모드 분리
+        if (!isVR)
+        {
+            float moveX = 0f;
+            float moveZ = 0f;
 #if ENABLE_INPUT_SYSTEM
-        // 1. 인스펙터에서 설정한 액션 (VR 컨트롤러 버튼 등)
-        if (tossAction.action != null && tossAction.action.WasPressedThisFrame())
-        {
-            inputActionTriggered = true;
-        }
-
-        // 2. 키보드 보조 (WASD 이동 및 Space/A키 토스)
-        if (Keyboard.current != null)
-        {
-            if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) moveX = -1f;
-            else if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) moveX = 1f;
-
-            if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed) moveZ = 1f;
-            else if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed) moveZ = -1f;
-            
-            if (Keyboard.current.spaceKey.wasPressedThisFrame || Keyboard.current.aKey.wasPressedThisFrame) inputActionTriggered = true;
-        }
-        
-        // 3. 마우스 보조
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) inputActionTriggered = true;
-
-        // 4. 게임패드/VR 기본 버튼 보조
-        if (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame) inputActionTriggered = true;
+            if (Keyboard.current != null)
+            {
+                if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) moveX = -1f;
+                else if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) moveX = 1f;
+                if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed) moveZ = 1f;
+                else if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed) moveZ = -1f;
+                
+                if (Keyboard.current.spaceKey.wasPressedThisFrame) inputActionTriggered = true;
+            }
+            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) inputActionTriggered = true;
 #else
-        // 레거시 Input
-        moveX = Input.GetAxis("Horizontal");
-        moveZ = Input.GetAxis("Vertical");
-        if (Input.GetButtonDown("Fire1") || Input.GetKeyDown(KeyCode.Space)) inputActionTriggered = true;
+            moveX = Input.GetAxis("Horizontal");
+            moveZ = Input.GetAxis("Vertical");
+            if (Input.GetButtonDown("Fire1") || Input.GetKeyDown(KeyCode.Space)) inputActionTriggered = true;
 #endif
+            Vector3 moveDir = new Vector3(moveX, 0, moveZ);
+            transform.Translate(moveDir * moveSpeed * Time.deltaTime);
 
-        // 1. 이동 처리 (WASD)
-        Vector3 moveDir = new Vector3(moveX, 0, moveZ);
-        transform.Translate(moveDir * moveSpeed * Time.deltaTime);
+            // --- PC 랠리: 반드시 클릭/스페이스바를 눌러야 침 ---
+            if (!isServing && inputActionTriggered)
+            {
+                float distToBall = Vector3.Distance(racketCenter.position, currentBall.transform.position);
+                if (distToBall <= hitRange) PerformHit();
+            }
+        }
+        else
+        {
+            // VR 서브 제스처
+            if (isServing && !isServeTossing && vrLeftHand != null)
+            {
+                float handVelocityY = (vrLeftHand.position.y - lastHandPos.y) / Time.deltaTime;
+                if (handVelocityY > vrTossThreshold) inputActionTriggered = true;
+                lastHandPos = vrLeftHand.position;
+            }
+            
+            // --- VR 랠리: 공 근처에 라켓을 가져다 대면 자동 타격 ---
+            if (!isServing && currentBall != null)
+            {
+                float distToBall = Vector3.Distance(racketCenter.position, currentBall.transform.position);
+                if (distToBall <= hitRange * 0.4f) PerformHit();
+            }
+        }
 
-        // 2. 캐릭터 모델 위치 동기화 (바닥 고정)
         if (characterModel != null)
         {
-            characterModel.position = new Vector3(transform.position.x, characterModel.position.y, transform.position.z);
+            characterModel.position = new Vector3(transform.position.x, transform.position.y, transform.position.z);
             characterModel.rotation = Quaternion.Euler(0, transform.rotation.eulerAngles.y, 0);
         }
 
-        // 3. 서브 토스 로직
         if (isServing && !isServeTossing)
         {
-            if (currentBall == null)
-            {
-                FindBall();
-                if (currentBall == null) return;
-            }
-
-            // 공을 손 위치에 고정
-            if (servePoint != null)
-            {
-                currentBall.transform.position = servePoint.position;
-                currentBall.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
-            }
-
-            // 설정한 버튼을 누르면 공 던지기
-            if (inputActionTriggered) 
-            {
-                TossBall();
-            }
+            if (currentBall == null) { FindBall(); if (currentBall == null) return; }
+            
+            if (isVR && vrLeftHand != null) currentBall.transform.position = vrLeftHand.position;
+            else if (servePoint != null) currentBall.transform.position = servePoint.position;
+            
+            currentBall.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
+            if (inputActionTriggered) TossBall();
         }
     }
 
@@ -140,34 +144,33 @@ public class PlayerController : MonoBehaviour
         ballRb.linearVelocity = Vector3.up * tossForce;
     }
 
-    // 타격 로직 (라켓의 RacketHit 스크립트에서 호출됨)
     public void PerformHit()
     {
         if (currentBall == null) return;
 
-        // 1. 서브 대기 중인데 라켓이 닿으면 -> 공을 위로 던짐 (토스)
-        if (isServing && !isServeTossing)
-        {
-            TossBall();
-            return; 
-        }
+        if (isServing && !isServeTossing) { TossBall(); return; }
         
-        // 2. 이미 던져진 상태이거나 일반 랠리 중일 때 -> 상대 진영으로 타격
         if (!isServing || (isServing && isServeTossing))
         {
-            Debug.Log("타격 성공! 상대 진영으로 발사.");
-            
-            // 시간 저속 효과
+            Debug.Log("타격 성공!");
             Time.timeScale = 0.2f;
             Invoke("ResetTime", 0.05f);
 
             Vector3 randomTarget = GetRandomTargetPoint();
-            float randomFlightTime = Random.Range(minFlightTime, maxFlightTime);
-            Vector3 exactVelocity = CalculateVelocity(randomTarget, currentBall.transform.position, randomFlightTime);
+            float flightTime = Random.Range(minFlightTime, maxFlightTime);
             
+            // --- PC 파워 계산: 공과 라켓 중심 거리에 따라 속도 조절 ---
+            if (!GameManager.Instance.isVRMode)
+            {
+                float dist = Vector3.Distance(racketCenter.position, currentBall.transform.position);
+                float powerNormalized = 1.0f - (dist / hitRange); 
+                powerNormalized = Mathf.Clamp(powerNormalized, 0.3f, 1.0f);
+                flightTime = Mathf.Lerp(maxFlightTime, minFlightTime, powerNormalized); 
+            }
+
+            Vector3 exactVelocity = CalculateVelocity(randomTarget, currentBall.transform.position, flightTime);
             currentBall.GetComponent<Rigidbody>().linearVelocity = exactVelocity;
             
-            // 서브 완료 처리
             isServing = false;
             isServeTossing = false;
         }
@@ -175,7 +178,6 @@ public class PlayerController : MonoBehaviour
 
     public void ResetServe()
     {
-        Debug.Log("서브 리셋!");
         isServing = true;
         isServeTossing = false;
         if (currentBall != null)
@@ -196,10 +198,7 @@ public class PlayerController : MonoBehaviour
         return new Vector3(randomX, bounds.min.y, randomZ);
     }
 
-    void ResetTime()
-    {
-        Time.timeScale = 1.0f;
-    }
+    void ResetTime() { Time.timeScale = 1.0f; }
 
     Vector3 CalculateVelocity(Vector3 target, Vector3 origin, float time)
     {
