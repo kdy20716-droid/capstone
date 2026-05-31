@@ -7,8 +7,16 @@ public class GameManager : MonoBehaviour
 
     [Header("UI Settings")]
     public TextMeshProUGUI scoreText;
-    [Tooltip("캐릭터/라켓 선택 UI 패널")]
     public GameObject selectionUI; 
+    public SelectionCameraHandler cameraHandler;
+
+    [Header("Selection Lists")]
+    public GameObject[] characterPrefabs; // 인스펙터에서 캐릭터 오브젝트들을 넣어주세요
+    public GameObject[] racketPrefabs;    // 인스펙터에서 라켓 오브젝트들을 넣어주세요
+
+    [Header("Player Selection Result")]
+    public int selectedCharacterIndex = 0;
+    public int selectedRacketIndex = 0;
 
     public bool isGameStarted = false;
 
@@ -27,12 +35,60 @@ public class GameManager : MonoBehaviour
     {
         UpdateScoreUI();
         if (selectionUI != null) selectionUI.SetActive(true);
+        UpdateSelectionVisuals();
+    }
+
+    public void NextCharacter()
+    {
+        selectedCharacterIndex = (selectedCharacterIndex + 1) % characterPrefabs.Length;
+        UpdateSelectionVisuals();
+    }
+
+    public void PrevCharacter()
+    {
+        selectedCharacterIndex--;
+        if (selectedCharacterIndex < 0) selectedCharacterIndex = characterPrefabs.Length - 1;
+        UpdateSelectionVisuals();
+    }
+
+    public void NextRacket()
+    {
+        selectedRacketIndex = (selectedRacketIndex + 1) % racketPrefabs.Length;
+        UpdateSelectionVisuals();
+    }
+
+    public void PrevRacket()
+    {
+        selectedRacketIndex--;
+        if (selectedRacketIndex < 0) selectedRacketIndex = racketPrefabs.Length - 1;
+        UpdateSelectionVisuals();
+    }
+
+    void UpdateSelectionVisuals()
+    {
+        // 캐릭터들 중 선택된 것만 켭니다
+        for (int i = 0; i < characterPrefabs.Length; i++)
+        {
+            if (characterPrefabs[i] != null) characterPrefabs[i].SetActive(i == selectedCharacterIndex);
+        }
+        // 라켓들 중 선택된 것만 켭니다
+        for (int i = 0; i < racketPrefabs.Length; i++)
+        {
+            if (racketPrefabs[i] != null) racketPrefabs[i].SetActive(i == selectedRacketIndex);
+        }
+        
+        Debug.Log($"Selection Updated: Char {selectedCharacterIndex}, Racket {selectedRacketIndex}");
     }
 
     public void GameStart()
     {
         isGameStarted = true;
         if (selectionUI != null) selectionUI.SetActive(false);
+        if (cameraHandler != null) cameraHandler.StopOrbiting();
+        
+        // 게임 시작 시 점수 UI 표시
+        if (scoreText != null) scoreText.gameObject.SetActive(true);
+        
         Debug.Log("캐릭터/라켓 선택 완료, 게임 시작!");
     }
 
