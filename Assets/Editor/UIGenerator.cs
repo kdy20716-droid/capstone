@@ -119,7 +119,7 @@ public static void GenerateSelectionUI()
         GameManager gm = Object.FindFirstObjectByType<GameManager>();
         if (gm != null)
         {
-            gm.selectionUI = selectionPanel;
+            gm.pcSelectionUI = selectionPanel;
             gm.charImageDisplay = charImg;
             gm.racketImageDisplay = racketImg;
             if (selectionPanel.GetComponent<SelectionUIHandler>() == null)

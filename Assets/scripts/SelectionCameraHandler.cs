@@ -4,7 +4,7 @@ public class SelectionCameraHandler : MonoBehaviour
 {
     [Header("Orbit Settings")]
     public Transform courtCenter; // 코트 중심점 (없으면 0,0,0 기준)
-    public float rotationSpeed = 20f;
+    public float rotationSpeed = 10f; // 속도를 2배 줄임 (기존 20)
     public float orbitDistance = 15f;
     public float orbitHeight = 10f;
 

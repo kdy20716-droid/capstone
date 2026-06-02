@@ -6,11 +6,16 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance;
 
     [Header("UI Settings")]
-    public TextMeshProUGUI scoreText;
+    public TextMeshProUGUI pcScoreText;
+    public TextMeshProUGUI vrScoreText;
+    public GameObject pcCanvas;
+    public GameObject vrCanvas;
+
     [Header("Selection UI References")]
-    public GameObject selectionUI; 
-    public UnityEngine.UI.Image charImageDisplay;   // 캐릭터 이미지 표시용
-    public UnityEngine.UI.Image racketImageDisplay; // 라켓 이미지 표시용
+    public GameObject pcSelectionUI; 
+    public GameObject vrSelectionUI; 
+    public UnityEngine.UI.Image charImageDisplay;   
+    public UnityEngine.UI.Image racketImageDisplay; 
     
     [Header("Camera Settings")]
     public GameObject selectionCamera; 
@@ -18,12 +23,12 @@ public class GameManager : MonoBehaviour
     public SelectionCameraHandler cameraHandler; 
 
     [Header("Player Rigs")]
-    public GameObject pcPlayerRig; // PC용 플레이어 오브젝트
-    public GameObject vrPlayerRig; // VR용 XR Origin 오브젝트
+    public GameObject pcPlayerRig; 
+    public GameObject vrPlayerRig; 
 
     [Header("Selection Assets (Sprites)")]
-    public Sprite[] characterSprites; // 캐릭터 이미지들
-    public Sprite[] racketSprites;    // 라켓 이미지들
+    public Sprite[] characterSprites; 
+    public Sprite[] racketSprites;    
 
     [Header("Player Selection Result")]
     public int selectedCharacterIndex = 0;
@@ -32,6 +37,13 @@ public class GameManager : MonoBehaviour
     public bool isGameStarted = false;
     public bool isVRMode = false;
 
+    [Header("Court Triggers")]
+    public GameObject playerBackTrigger;
+    public GameObject enemyBackTrigger;
+
+    public bool lastPointWinnerIsPlayer = true; 
+
+    private bool isPointProcessing = false; 
     private int playerPoints = 0;
     private int enemyPoints = 0;
 
@@ -43,20 +55,87 @@ public class GameManager : MonoBehaviour
         else Destroy(gameObject);
     }
 
+    public void NotifyBallOut(GameObject trigger)
+    {
+        if (isPointProcessing) return;
+        isPointProcessing = true;
+
+        bool playerScored = false;
+        if (trigger == playerBackTrigger) playerScored = false;
+        else if (trigger == enemyBackTrigger) playerScored = true;
+        else { isPointProcessing = false; return; }
+
+        AddPoint(playerScored);
+        Invoke("ResetRound", 1.0f);
+    }
+
+    public void ResetRound()
+    {
+        isPointProcessing = false;
+        PlayerController player = Object.FindFirstObjectByType<PlayerController>();
+        EnemyAI enemy = Object.FindFirstObjectByType<EnemyAI>();
+
+        if (lastPointWinnerIsPlayer)
+        {
+            if (player != null) player.PrepareServe();
+            if (enemy != null) enemy.ResetToStart();
+        }
+        else
+        {
+            if (enemy != null) enemy.PrepareServe();
+            if (player != null) player.ResetToStart();
+        }
+    }
+
     void Start()
     {
-        UpdateScoreUI();
-        if (scoreText != null) scoreText.gameObject.SetActive(false);
+        if (pcCanvas != null) pcCanvas.SetActive(false);
+        if (vrCanvas != null) vrCanvas.SetActive(false);
+        if (pcScoreText != null) pcScoreText.gameObject.SetActive(false);
+        if (vrScoreText != null) vrScoreText.gameObject.SetActive(false);
         
         if (selectionCamera != null) selectionCamera.SetActive(true);
         if (playCamera != null) playCamera.SetActive(false);
         
-        // 리그 전환용 초기화
         if (pcPlayerRig != null) pcPlayerRig.SetActive(false);
         if (vrPlayerRig != null) vrPlayerRig.SetActive(false);
 
-        if (selectionUI != null) selectionUI.SetActive(true);
+        // 초기 셀렉트 UI 설정 (InputAutoSwitcher가 PC 모드로 시작하므로 맞춰줌)
+        if (pcSelectionUI != null) pcSelectionUI.SetActive(true);
+        if (vrSelectionUI != null) vrSelectionUI.SetActive(false);
+
         UpdateSelectionVisuals();
+        UpdateScoreUI();
+    }
+
+    public void GameStart(bool useVR)
+    {
+        isGameStarted = true;
+        isVRMode = useVR;
+
+        // 모든 셀렉트 UI 끄기
+        if (pcSelectionUI != null) pcSelectionUI.SetActive(false);
+        if (vrSelectionUI != null) vrSelectionUI.SetActive(false);
+        
+        if (selectionCamera != null) selectionCamera.SetActive(false);
+        
+        if (pcCanvas != null) pcCanvas.SetActive(!isVRMode);
+        if (vrCanvas != null) vrCanvas.SetActive(isVRMode);
+
+        if (playCamera != null) playCamera.SetActive(!isVRMode);
+        if (pcPlayerRig != null) pcPlayerRig.SetActive(!isVRMode);
+        if (vrPlayerRig != null) vrPlayerRig.SetActive(isVRMode);
+        if (cameraHandler != null) cameraHandler.StopOrbiting();
+        
+        if (pcScoreText != null) pcScoreText.gameObject.SetActive(!isVRMode);
+        if (vrScoreText != null) vrScoreText.gameObject.SetActive(isVRMode);
+        
+        playerPoints = 0;
+        enemyPoints = 0;
+        lastPointWinnerIsPlayer = true;
+
+        UpdateScoreUI();
+        ResetRound();
     }
 
     public void NextCharacter()
@@ -101,97 +180,38 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void GameStart(bool useVR)
-    {
-        Debug.Log($"[GameManager] GameStart Called. VR Mode: {useVR}");
-        
-        isGameStarted = true;
-        isVRMode = useVR;
-
-        if (selectionUI != null) 
-        {
-            selectionUI.SetActive(false);
-            Debug.Log("[GameManager] Selection UI Hidden.");
-        }
-        else Debug.LogWarning("[GameManager] Selection UI is NULL!");
-
-        // 카메라 전환
-        if (selectionCamera != null) selectionCamera.SetActive(false);
-        if (playCamera != null) 
-        {
-            playCamera.SetActive(!isVRMode);
-            Debug.Log($"[GameManager] Play Camera SetActive: {!isVRMode}");
-        }
-
-        // 리그 전환
-        if (pcPlayerRig != null) 
-        {
-            pcPlayerRig.SetActive(!isVRMode);
-            Debug.Log($"[GameManager] PC Rig SetActive: {!isVRMode}");
-        }
-        else Debug.LogWarning("[GameManager] PC Player Rig is NULL!");
-
-        if (vrPlayerRig != null) 
-        {
-            vrPlayerRig.SetActive(isVRMode);
-            Debug.Log($"[GameManager] VR Rig SetActive: {isVRMode}");
-        }
-        else if (isVRMode) Debug.LogError("[GameManager] VR Mode selected but VR Rig is NULL!");
-
-        if (cameraHandler != null) cameraHandler.StopOrbiting();
-        
-        if (scoreText != null) 
-        {
-            scoreText.gameObject.SetActive(true);
-            UpdateScoreUI();
-        }
-
-        Debug.Log($"[GameManager] Game Successfully Started! Mode: {(isVRMode ? "VR" : "PC")}");
-    }
-
-    public void GameStart()
-    {
-        GameStart(false);
-    }
+    public void GameStart() { GameStart(false); }
 
     public void AddPoint(bool isPlayer)
     {
         if (isPlayer) playerPoints++;
         else enemyPoints++;
-
+        lastPointWinnerIsPlayer = isPlayer;
         CheckGameWin();
         UpdateScoreUI();
     }
 
     void CheckGameWin()
     {
-        // 간단한 테니스 점수 로직 (듀스 제외 기본형)
-        if (playerPoints >= 4 && playerPoints - enemyPoints >= 1)
-        {
-            Debug.Log("플레이어 승리!");
-            ResetGame();
-        }
-        else if (enemyPoints >= 4 && enemyPoints - playerPoints >= 1)
-        {
-            Debug.Log("AI 승리!");
-            ResetGame();
-        }
+        if (playerPoints >= 4 && playerPoints - enemyPoints >= 2) ResetGame();
+        else if (enemyPoints >= 4 && enemyPoints - playerPoints >= 2) ResetGame();
     }
 
     void ResetGame()
     {
         playerPoints = 0;
         enemyPoints = 0;
+        UpdateScoreUI();
     }
 
     void UpdateScoreUI()
     {
-        if (scoreText != null)
-        {
-            string pScore = GetTennisScore(playerPoints, enemyPoints, true);
-            string eScore = GetTennisScore(enemyPoints, playerPoints, false);
-            scoreText.text = $"Player: {pScore} | Enemy: {eScore}";
-        }
+        string pScore = GetTennisScore(playerPoints, enemyPoints, true);
+        string eScore = GetTennisScore(enemyPoints, playerPoints, false);
+        string combinedScore = $"Player: {pScore} | Enemy: {eScore}";
+
+        if (pcScoreText != null) pcScoreText.text = combinedScore;
+        if (vrScoreText != null) vrScoreText.text = combinedScore;
     }
 
     string GetTennisScore(int points, int opponentPoints, bool isPlayer)
@@ -201,8 +221,6 @@ public class GameManager : MonoBehaviour
             if (points > 3) return "Win";
             return tennisScores[points];
         }
-
-        // 듀스 상황
         if (points == opponentPoints) return "40";
         if (points > opponentPoints) return "Adv";
         return "40";

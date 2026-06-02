@@ -15,22 +15,21 @@ public class RacketHit : MonoBehaviour
     {
         if (collision.gameObject.CompareTag("Ball"))
         {
-            if (player != null)
+            // PC 모드에서는 자동 타격을 하지 않습니다. (Update에서 클릭 시 처리)
+            // VR 모드일 때만 라켓 휘두르기로 타격이 가능하도록 제한할 수 있습니다.
+            if (player != null && GameManager.Instance != null && GameManager.Instance.isVRMode)
             {
-                Debug.Log("라켓 충돌 감지! 타격을 수행합니다.");
                 player.PerformHit();
             }
         }
     }
 
-    // 라켓의 Collider가 'Is Trigger'가 체크되어 있을 때 실행됩니다.
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Ball"))
         {
-            if (player != null)
+            if (player != null && GameManager.Instance != null && GameManager.Instance.isVRMode)
             {
-                Debug.Log("라켓 트리거 감지! 타격을 수행합니다.");
                 player.PerformHit();
             }
         }
