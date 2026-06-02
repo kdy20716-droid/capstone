@@ -115,15 +115,21 @@ public static void GenerateSelectionUI()
         CreateButton(selectionPanel.transform, "PlayBtn", "PC START", new Vector2(-180, -400), new Vector2(250, 80)).name = "PlayBtn";
         CreateButton(selectionPanel.transform, "VRPlayBtn", "VR START", new Vector2(180, -400), new Vector2(250, 80)).name = "VRPlayBtn";
 
-        // 3. Link to GameManager
+        // 3. Link to GameManager & InputAutoSwitcher
         GameManager gm = Object.FindFirstObjectByType<GameManager>();
+        InputAutoSwitcher switcher = Object.FindFirstObjectByType<InputAutoSwitcher>();
+        
         if (gm != null)
         {
-            gm.pcSelectionUI = selectionPanel;
             gm.charImageDisplay = charImg;
             gm.racketImageDisplay = racketImg;
             if (selectionPanel.GetComponent<SelectionUIHandler>() == null)
                 selectionPanel.AddComponent<SelectionUIHandler>();
+        }
+
+        if (switcher != null)
+        {
+            switcher.pcSelectionUI = selectionPanel;
         }
 
         Debug.Log("🎉 [Success] Side-by-Side 2D Selection UI generated!");

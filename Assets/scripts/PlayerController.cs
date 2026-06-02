@@ -102,7 +102,23 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        if (GameManager.Instance == null || !GameManager.Instance.isGameStarted) return;
+        // 1. 게임 시작 전 물리 및 컴포넌트 강제 제어
+        if (GameManager.Instance == null || !GameManager.Instance.isGameStarted)
+        {
+            // CharacterController가 있다면 땅 꺼짐 방지를 위해 잠시 끕니다.
+            CharacterController cc = GetComponent<CharacterController>();
+            if (cc != null && cc.enabled) cc.enabled = false;
+            
+            // Rigidbody가 있다면 물리 정지
+            Rigidbody rb = GetComponent<Rigidbody>();
+            if (rb != null) { rb.isKinematic = true; rb.useGravity = false; }
+            
+            return; 
+        }
+
+        // 2. 게임 시작 시 컴포넌트 복구
+        CharacterController activeCC = GetComponent<CharacterController>();
+        if (activeCC != null && !activeCC.enabled) activeCC.enabled = true;
 
         bool isVR = GameManager.Instance.isVRMode;
         bool inputActionTriggered = false;
@@ -111,7 +127,7 @@ public class PlayerController : MonoBehaviour
         float moveX = 0f;
         float moveZ = 0f;
 
-        // 1. 입력 처리
+        // --- 기존 입력 로직 시작 ---
         if (!isVR)
         {
 #if ENABLE_INPUT_SYSTEM
@@ -124,10 +140,7 @@ public class PlayerController : MonoBehaviour
                 
                 if (Keyboard.current.spaceKey.wasPressedThisFrame) slideRequested = true;
             }
-            // 마우스 클릭도 타격으로 인정
             if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) inputActionTriggered = true;
-            
-            // 인스펙터에 설정된 토스 액션도 체크
             if (tossAction.action != null && tossAction.action.triggered) inputActionTriggered = true;
 #else
             moveX = Input.GetAxis("Horizontal");
@@ -152,11 +165,8 @@ public class PlayerController : MonoBehaviour
                 }
                 lastMoveDir = moveInput;
             }
-            
-            // VR 서브 토스 버튼 체크
             if (tossAction.action != null && tossAction.action.triggered) inputActionTriggered = true;
 #endif
-            // VR 서브 토스 제스처 (손을 위로 올릴 때)
             if (isServing && !isBallTossed && vrLeftHand != null)
             {
                 float handVelocityY = (vrLeftHand.position.y - lastHandPos.y) / Time.deltaTime;
@@ -164,15 +174,14 @@ public class PlayerController : MonoBehaviour
                 lastHandPos = vrLeftHand.position;
             }
             
-            // VR 랠리 타격 (자동)
             if (!isServing && currentBall != null)
             {
                 float distToBall = Vector3.Distance(racketCenter.position, currentBall.transform.position);
                 if (distToBall <= hitRange * 0.4f) PerformHit();
             }
         }
+        // --- 기존 입력 로직 끝 ---
 
-        // 2. 이동 및 슬라이딩 처리
         if (slideRequested && !isSliding && !isSlowed)
         {
             StartCoroutine(SlideRoutine(new Vector3(moveX, 0, moveZ).normalized));
@@ -205,7 +214,7 @@ public class PlayerController : MonoBehaviour
 
         if (characterModel != null)
         {
-            float targetY = isVR ? 0f : transform.position.y;
+            float targetY = isVR ? 0.1f : transform.position.y; // VR 리깅 시 바닥 아래로 꺼짐 방지
             characterModel.position = new Vector3(transform.position.x, targetY, transform.position.z);
             characterModel.rotation = transform.rotation;
         }
@@ -218,6 +227,15 @@ public class PlayerController : MonoBehaviour
             Rigidbody ballRb = currentBall.GetComponent<Rigidbody>();
             ballRb.isKinematic = true;
             ballRb.linearVelocity = Vector3.zero;
+        }
+    }
+
+    void FixedUpdate()
+    {
+        // 선택 화면에서는 물리 위치를 강제로 초기 위치로 고정 (중력 무시)
+        if (GameManager.Instance == null || !GameManager.Instance.isGameStarted)
+        {
+            transform.position = startPosition;
         }
     }
 

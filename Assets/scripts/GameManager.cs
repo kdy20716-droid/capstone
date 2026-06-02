@@ -11,9 +11,7 @@ public class GameManager : MonoBehaviour
     public GameObject pcCanvas;
     public GameObject vrCanvas;
 
-    [Header("Selection UI References")]
-    public GameObject pcSelectionUI; 
-    public GameObject vrSelectionUI; 
+    [Header("Selection UI Displays")]
     public UnityEngine.UI.Image charImageDisplay;   
     public UnityEngine.UI.Image racketImageDisplay; 
     
@@ -72,18 +70,20 @@ public class GameManager : MonoBehaviour
     public void ResetRound()
     {
         isPointProcessing = false;
-        PlayerController player = Object.FindFirstObjectByType<PlayerController>();
-        EnemyAI enemy = Object.FindFirstObjectByType<EnemyAI>();
+        PlayerController player = UnityEngine.Object.FindFirstObjectByType<PlayerController>();
+        VRPlayerController vrPlayer = UnityEngine.Object.FindFirstObjectByType<VRPlayerController>();
+        EnemyAI enemy = UnityEngine.Object.FindFirstObjectByType<EnemyAI>();
 
         if (lastPointWinnerIsPlayer)
         {
-            if (player != null) player.PrepareServe();
+            if (player != null && !isVRMode) player.PrepareServe();
             if (enemy != null) enemy.ResetToStart();
         }
         else
         {
             if (enemy != null) enemy.PrepareServe();
-            if (player != null) player.ResetToStart();
+            if (player != null && !isVRMode) player.ResetToStart();
+            if (vrPlayer != null && isVRMode) vrPlayer.ResetToStart();
         }
     }
 
@@ -94,15 +94,12 @@ public class GameManager : MonoBehaviour
         if (pcScoreText != null) pcScoreText.gameObject.SetActive(false);
         if (vrScoreText != null) vrScoreText.gameObject.SetActive(false);
         
-        if (selectionCamera != null) selectionCamera.SetActive(true);
+        // selectionCamera, pcSelectionUI, vrSelectionUI 제어는 InputAutoSwitcher로 위임
+        
         if (playCamera != null) playCamera.SetActive(false);
         
         if (pcPlayerRig != null) pcPlayerRig.SetActive(false);
         if (vrPlayerRig != null) vrPlayerRig.SetActive(false);
-
-        // 초기 셀렉트 UI 설정 (InputAutoSwitcher가 PC 모드로 시작하므로 맞춰줌)
-        if (pcSelectionUI != null) pcSelectionUI.SetActive(true);
-        if (vrSelectionUI != null) vrSelectionUI.SetActive(false);
 
         UpdateSelectionVisuals();
         UpdateScoreUI();
@@ -113,11 +110,7 @@ public class GameManager : MonoBehaviour
         isGameStarted = true;
         isVRMode = useVR;
 
-        // 모든 셀렉트 UI 끄기
-        if (pcSelectionUI != null) pcSelectionUI.SetActive(false);
-        if (vrSelectionUI != null) vrSelectionUI.SetActive(false);
-        
-        if (selectionCamera != null) selectionCamera.SetActive(false);
+        // 셀렉트 UI 및 셀렉션 카메라 끄기는 InputAutoSwitcher 상태 갱신을 통해 처리됨
         
         if (pcCanvas != null) pcCanvas.SetActive(!isVRMode);
         if (vrCanvas != null) vrCanvas.SetActive(isVRMode);
@@ -129,6 +122,14 @@ public class GameManager : MonoBehaviour
         
         if (pcScoreText != null) pcScoreText.gameObject.SetActive(!isVRMode);
         if (vrScoreText != null) vrScoreText.gameObject.SetActive(isVRMode);
+        
+        // InputAutoSwitcher 상태 갱신 (선택 화면 UI 강제 비활성화 및 인게임 UI 활성화를 위함)
+        InputAutoSwitcher switcher = Object.FindFirstObjectByType<InputAutoSwitcher>();
+        if (switcher != null)
+        {
+            if (isVRMode) switcher.SwitchToVR();
+            else switcher.SwitchToPC();
+        }
         
         playerPoints = 0;
         enemyPoints = 0;
