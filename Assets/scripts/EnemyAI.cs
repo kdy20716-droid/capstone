@@ -22,6 +22,9 @@ public class EnemyAI : MonoBehaviour
     public Transform servePoint;
     public float tossForce = 5f;
 
+    [Header("Animation")]
+    public Animator animator;
+
     private Ball currentBall;
     private float hitCooldown = 0f;
     private Vector3 startPosition; 
@@ -89,7 +92,22 @@ public class EnemyAI : MonoBehaviour
             targetPosition = new Vector3(startPosition.x, transform.position.y, transform.position.z);
         }
 
+        Vector3 oldPos = transform.position;
         transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
+
+        // 애니메이션 파라미터 업데이트
+        if (animator != null)
+        {
+            Vector3 velocity = (transform.position - oldPos) / Time.deltaTime;
+            Vector3 relativeVelocity = transform.InverseTransformDirection(velocity);
+            
+            // 속도를 최대 속도로 나누어 -1 ~ 1 사이 값으로 정규화
+            float moveX = Mathf.Clamp(relativeVelocity.x / moveSpeed, -1f, 1f);
+            float moveZ = Mathf.Clamp(relativeVelocity.z / moveSpeed, -1f, 1f);
+            
+            animator.SetFloat("MoveX", moveX, 0.1f, Time.deltaTime);
+            animator.SetFloat("MoveZ", moveZ, 0.1f, Time.deltaTime);
+        }
 
         if (hitCooldown > 0) hitCooldown -= Time.deltaTime;
 
@@ -136,6 +154,9 @@ public class EnemyAI : MonoBehaviour
     {
         Debug.Log("AI가 타격합니다!");
         hitCooldown = 1.0f; 
+
+        // 타격 애니메이션 실행
+        if (animator != null) animator.SetTrigger("hit");
 
         Vector3 randomTarget = GetRandomTargetPoint();
         float randomFlightTime = Random.Range(minFlightTime, maxFlightTime);

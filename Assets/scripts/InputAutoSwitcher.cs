@@ -17,6 +17,10 @@ public class InputAutoSwitcher : MonoBehaviour
     public GameObject pcSelectionCamera;     // PC용 빙글빙글 도는 셀렉션 카메라 (GameManager의 selectionCamera)
     public GameObject vrSelectionRig;        // VR용 셀렉션 XR Origin 릭
 
+    [Header("Event Systems")]
+    public GameObject pcEventSystem;         // PC용 이벤트 시스템 (Standalone/InputSystem Module)
+    public GameObject vrEventSystem;         // VR용 이벤트 시스템 (XR UI Input Module)
+
     private Vector3 lastMousePos;
     private bool isVRActive = false;
 
@@ -44,14 +48,23 @@ public class InputAutoSwitcher : MonoBehaviour
         Vector3 currentMousePos = Input.mousePosition;
         if (Vector3.Distance(currentMousePos, lastMousePos) > 1.0f)
         {
-            if (isVRActive) SwitchToPC();
+            bool gameStarted = (GameManager.Instance != null) ? GameManager.Instance.isGameStarted : false;
+            // VR 모드이거나, PC 모드인데 UI가 꺼져있으면(게임 시작 전) PC 모드로 전환/UI 활성화
+            if (isVRActive || (!gameStarted && pcSelectionUI != null && !pcSelectionUI.activeSelf))
+            {
+                SwitchToPC();
+            }
         }
         lastMousePos = currentMousePos;
 
         // 2. 마우스 클릭 감지 (PC로 전환)
         if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1))
         {
-            if (isVRActive) SwitchToPC();
+            bool gameStarted = (GameManager.Instance != null) ? GameManager.Instance.isGameStarted : false;
+            if (isVRActive || (!gameStarted && pcSelectionUI != null && !pcSelectionUI.activeSelf))
+            {
+                SwitchToPC();
+            }
         }
 
         // 3. VR 헤드셋(HMD) 움직임 감지 (VR로 전환)
@@ -100,7 +113,20 @@ public class InputAutoSwitcher : MonoBehaviour
 
     public void SwitchToPC()
     {
-        if (!isVRActive && Time.time > 1.0f) return; // 이미 PC 모드면 중복 실행 방지 (시작 직후는 허용)
+        bool gameStarted = (GameManager.Instance != null) ? GameManager.Instance.isGameStarted : false;
+
+        // 이미 PC 모드이고, 필요한 UI가 이미 켜져있다면 중복 실행 방지 (시작 직후는 허용)
+        if (!isVRActive && Time.time > 1.0f) 
+        {
+            if (gameStarted)
+            {
+                if (pcCanvas != null && pcCanvas.activeSelf) return;
+            }
+            else
+            {
+                if (pcSelectionUI != null && pcSelectionUI.activeSelf) return;
+            }
+        }
         
         isVRActive = false;
         Cursor.visible = true;
@@ -112,15 +138,16 @@ public class InputAutoSwitcher : MonoBehaviour
         if (vrSelectionRig != null) { vrSelectionRig.SetActive(false); Debug.Log("VR Selection Rig 꺼짐"); }
         if (vrSelectionUI != null) { vrSelectionUI.SetActive(false); Debug.Log("VR Selection UI 꺼짐"); }
         if (vrWorldCanvas != null) { vrWorldCanvas.SetActive(false); Debug.Log("VR World Canvas 꺼짐"); }
+        if (vrEventSystem != null) vrEventSystem.SetActive(false); // VR 이벤트 시스템 끄기
         
         foreach (GameObject visual in vrControllerVisuals)
         {
             if (visual != null) visual.SetActive(false);
         }
 
-        // PC 요소들 제어
-        bool gameStarted = (GameManager.Instance != null) ? GameManager.Instance.isGameStarted : false;
-
+        // PC 시스템 활성화
+        if (pcEventSystem != null) pcEventSystem.SetActive(true);
+        
         if (gameStarted)
         {
             if (pcCanvas != null) pcCanvas.SetActive(true);
@@ -160,8 +187,11 @@ public class InputAutoSwitcher : MonoBehaviour
         if (pcCanvas != null) pcCanvas.SetActive(false);
         if (pcSelectionUI != null) { pcSelectionUI.SetActive(false); Debug.Log("PC Selection UI 꺼짐"); }
         if (pcSelectionCamera != null) { pcSelectionCamera.SetActive(false); Debug.Log("PC Selection Camera 꺼짐"); }
+        if (pcEventSystem != null) pcEventSystem.SetActive(false); // PC 이벤트 시스템 끄기
         
         // VR 요소들 켜기
+        if (vrEventSystem != null) vrEventSystem.SetActive(true); // VR 이벤트 시스템 켜기
+        
         foreach (GameObject visual in vrControllerVisuals)
         {
             if (visual != null) visual.SetActive(true);

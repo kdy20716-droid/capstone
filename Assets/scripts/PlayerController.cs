@@ -31,6 +31,9 @@ public class PlayerController : MonoBehaviour
     [Header("Serve Settings")]
     public Transform servePoint; 
     public float tossForce = 5f; 
+
+    [Header("Animation")]
+    public Animator animator; 
     
 #if ENABLE_INPUT_SYSTEM
     [Header("Input Actions")]
@@ -192,6 +195,22 @@ public class PlayerController : MonoBehaviour
             float currentSpeed = isSlowed ? slowMoveSpeed : moveSpeed;
             Vector3 moveDir = new Vector3(moveX, 0, moveZ);
             transform.Translate(moveDir * currentSpeed * Time.deltaTime);
+
+            // 애니메이션 파라미터 업데이트 (부드럽게)
+            if (animator != null)
+            {
+                animator.SetFloat("MoveX", moveX, 0.1f, Time.deltaTime);
+                animator.SetFloat("MoveZ", moveZ, 0.1f, Time.deltaTime);
+            }
+        }
+        else
+        {
+            // 슬라이딩 중일 때도 애니메이션 유지 또는 강제로 높게 설정 가능
+            if (animator != null)
+            {
+                animator.SetFloat("MoveX", moveX * 1.5f, 0.1f, Time.deltaTime);
+                animator.SetFloat("MoveZ", moveZ * 1.5f, 0.1f, Time.deltaTime);
+            }
         }
 
         if (moveArea != null)
@@ -269,6 +288,9 @@ public class PlayerController : MonoBehaviour
     {
         if (currentBall == null) return;
         if (isServing && !isBallTossed) return;
+
+        // 타격 애니메이션 실행
+        if (animator != null) animator.SetTrigger("hit");
 
         currentRallySpeedMultiplier += 0.05f; 
         bool isPowerShot = Random.Range(0f, 100f) < powerShotChance;
