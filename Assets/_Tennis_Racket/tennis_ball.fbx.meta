@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: c70a2b3e752e03b44928595edc03d466
+guid: 1135628ca167a0c4492b1c4b2fda1df8
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -7,18 +7,8 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: Tennis_Racket_Frame_Grip
-    second: {fileID: 2100000, guid: 80d281075cc45af4b93100fdba5d83d7, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: Tennis_Racket_Strings
-    second: {fileID: 2100000, guid: f94bd8fcd17d97a438cf2d535bb540a5, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: Tennis_Racket_Strings_2
-    second: {fileID: 2100000, guid: 2584844a074d5ab4fac8989947f51766, type: 2}
+      name: tennis_ball1
+    second: {fileID: 2100000, guid: 5561cebabb677f24496d6022f31b1439, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

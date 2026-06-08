@@ -10,35 +10,100 @@ public class Ball : MonoBehaviour
     // 공이 바닥에 닿았을 때 항상 튀어오를 고정 높이 (기존 1.0 -> 0.6으로 낮춤)
     public float fixedBounceHeight = 0.6f; 
 
+    [Header("Physics Settings")]
+    public float minHorizontalSpeed = 2f; // 최소 수평 속도
+    public float dragOnFloor = 0.98f; // 바닥에서의 감속 비율
+
     private Rigidbody rb;
+    private GameObject lastHitter;
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        // 자동 발사 로직 제거 (이제 PlayerController에서 관리함)
+        // 공이 너무 구르지 않도록 물리 재질의 마찰력을 무시하거나 조정할 수 있습니다.
+        rb.linearDamping = 0.1f;
+        rb.angularDamping = 0.1f;
     }
 
-    public void Launch(Vector3 direction)
+    void FixedUpdate()
     {
-        // 처음 시작할 때 공에 방향과 속도를 부여합니다.
-        rb.linearVelocity = direction.normalized * speed;
+        if (GameManager.Instance == null || !GameManager.Instance.isGameStarted) return;
+
+        // 수평 속도(X, Z)만 체크
+        Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
+        float speed = horizontalVelocity.magnitude;
+
+        // 공이 바닥에 있고 속도가 너무 느려지면 자동으로 타겟 방향으로 밀어줌
+        if (speed < minHorizontalSpeed && Mathf.Abs(rb.linearVelocity.y) < 0.1f)
+        {
+            // 현재 진행 방향 또는 마지막 타격 방향으로 속도 보정
+            Vector3 nudgeDir = horizontalVelocity.normalized;
+            if (nudgeDir == Vector3.zero) 
+            {
+                // 방향을 잃었으면 상대 코트 방향으로 설정 (Z축 기준)
+                nudgeDir = (transform.position.z > 0) ? Vector3.back : Vector3.forward;
+            }
+            rb.AddForce(nudgeDir * 2f, ForceMode.Acceleration);
+        }
     }
 
-    // --- 새로 추가된 고정 바운스 로직 ---
+    // --- 튕김 판정 로직 (특정 물체에만 반응하도록 수정) ---
     private void OnCollisionEnter(Collision collision)
     {
-        // 부딪힌 표면이 '바닥'(위쪽을 향하는 면)인지 판별합니다.
-        if (collision.contacts.Length > 0 && collision.contacts[0].normal.y > 0.5f)
+        // 부딪힌 물체의 레이어 이름을 가져옵니다.
+        string layerName = LayerMask.LayerToName(collision.gameObject.layer);
+
+        // [추가] 플레이어 몸에 부딪혔을 때의 안전 장치
+        if (layerName == "Player" || collision.gameObject.CompareTag("Player") || collision.gameObject.CompareTag("Enemy"))
         {
-            // 충돌 직전에 날아가던 수평(X, Z축) 속도는 그대로 살려둡니다.
-            Vector3 currentVelocity = rb.linearVelocity;
+            lastHitter = collision.gameObject;
+            
+            PlayerController pc = collision.gameObject.GetComponent<PlayerController>();
+            if (pc != null && pc.IsSwinging)
+            {
+                pc.ApplyHitVelocity();
+                return;
+            }
+            VRPlayerController vr = collision.gameObject.GetComponent<VRPlayerController>();
+            if (vr != null && vr.IsSwinging)
+            {
+                vr.ApplyHitVelocity();
+                return;
+            }
+            EnemyAI enemy = collision.gameObject.GetComponent<EnemyAI>();
+            if (enemy != null)
+            {
+                // AI는 자체 Update에서 타격하므로 여기서는 처리하지 않음
+            }
+        }
 
-            // 목표 높이(fixedBounceHeight)까지 도달하기 위해 필요한 정확한 수직(Y축) 튕김 속도를 계산합니다.
-            // (물리 공식: 속도 = 루트(2 * 중력 * 목표 높이))
-            float requiredUpVelocity = Mathf.Sqrt(2f * Mathf.Abs(Physics.gravity.y) * fixedBounceHeight);
+        // 'Floor' 또는 'Court' 레이어에 부딪혔을 때만 튕기도록 제한
+        if (layerName == "Floor" || layerName == "Court")
+        {
+            if (collision.contacts.Length > 0 && collision.contacts[0].normal.y > 0.5f)
+            {
+                Vector3 currentVelocity = rb.linearVelocity;
+                float requiredUpVelocity = Mathf.Sqrt(2f * Mathf.Abs(Physics.gravity.y) * fixedBounceHeight);
+                
+                // 수평 속도가 너무 죽지 않도록 최소 보정
+                float hX = currentVelocity.x;
+                float hZ = currentVelocity.z;
+                if (new Vector2(hX, hZ).magnitude < minHorizontalSpeed)
+                {
+                    Vector3 boostDir = new Vector3(hX, 0, hZ).normalized;
+                    if (boostDir == Vector3.zero) boostDir = (transform.position.z > 0) ? Vector3.back : Vector3.forward;
+                    hX = boostDir.x * minHorizontalSpeed;
+                    hZ = boostDir.z * minHorizontalSpeed;
+                }
 
-            // 앞뒤좌우(X, Z)로 날아가던 힘은 유지하고, 위아래(Y)로 튀어오르는 힘만 우리가 계산한 값으로 강제로 덮어씌웁니다.
-            rb.linearVelocity = new Vector3(currentVelocity.x, requiredUpVelocity, currentVelocity.z);
+                rb.linearVelocity = new Vector3(hX, requiredUpVelocity, hZ);
+            }
+        }
+        // 'Net'에 부딪혔을 때는 튕기지 않고 속도를 줄이거나 그냥 떨어지게 하고 싶다면 여기에 로직을 추가할 수 있습니다.
+        else if (layerName == "Net")
+        {
+             // 네트에 걸렸을 때의 처리 (예: 속도 급감)
+             rb.linearVelocity *= 0.5f;
         }
     }
 }

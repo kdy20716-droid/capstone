@@ -1,9 +1,24 @@
 fileFormatVersion: 2
-guid: 1135628ca167a0c4492b1c4b2fda1df8
+guid: c70a2b3e752e03b44928595edc03d466
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Tennis_Racket_Frame_Grip
+    second: {fileID: 2100000, guid: 80d281075cc45af4b93100fdba5d83d7, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Tennis_Racket_Strings
+    second: {fileID: 2100000, guid: f94bd8fcd17d97a438cf2d535bb540a5, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Tennis_Racket_Strings_2
+    second: {fileID: 2100000, guid: 2584844a074d5ab4fac8989947f51766, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -33,7 +48,7 @@ ModelImporter:
     isReadable: 0
   meshes:
     lODScreenPercentages: []
-    globalScale: 1
+    globalScale: 3
     meshCompression: 0
     addColliders: 0
     useSRGBMaterialColor: 1
@@ -91,7 +106,7 @@ ModelImporter:
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
-    globalScale: 1
+    globalScale: 0.03
     rootMotionBoneName: 
     hasTranslationDoF: 0
     hasExtraRoot: 0

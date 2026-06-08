@@ -41,7 +41,18 @@ public class EnemyAI : MonoBehaviour
     void FindBall()
     {
         GameObject ballObj = GameObject.FindGameObjectWithTag("Ball");
-        if (ballObj != null) currentBall = ballObj.GetComponent<Ball>();
+        if (ballObj != null) 
+        {
+            currentBall = ballObj.GetComponent<Ball>();
+
+            // 공과 AI의 콜라이더 충돌 무시 (타격 시 튕김 방지)
+            Collider ballCollider = ballObj.GetComponent<Collider>();
+            Collider myCollider = GetComponent<Collider>();
+            if (ballCollider != null && myCollider != null)
+            {
+                Physics.IgnoreCollision(ballCollider, myCollider);
+            }
+        }
     }
 
     public void PrepareServe()
@@ -150,19 +161,41 @@ public class EnemyAI : MonoBehaviour
         ballRb.linearVelocity = Vector3.up * tossForce;
     }
 
+    [Header("Timing Settings")]
+    public float hitDelay = 0.25f; // AI는 약간의 여유를 둠
+
     void EnemyHit()
     {
-        Debug.Log("AI가 타격합니다!");
-        hitCooldown = 1.0f; 
+        Debug.Log("AI가 휘두르기를 시작합니다!");
+        hitCooldown = 1.5f; 
 
-        // 타격 애니메이션 실행
+        // 1. 애니메이션 즉시 실행
         if (animator != null) animator.SetTrigger("hit");
 
+        // 2. 딜레이 후 실제 타격 로직 실행
+        StartCoroutine(DelayedHitRoutine());
+    }
+
+    private System.Collections.IEnumerator DelayedHitRoutine()
+    {
+        yield return new WaitForSeconds(hitDelay);
+
+        if (currentBall != null)
+        {
+            ApplyHitVelocity();
+        }
+    }
+
+    private void ApplyHitVelocity()
+    {
         Vector3 randomTarget = GetRandomTargetPoint();
         float randomFlightTime = Random.Range(minFlightTime, maxFlightTime);
         
         Vector3 exactVelocity = CalculateVelocity(randomTarget, currentBall.transform.position, randomFlightTime);
         currentBall.GetComponent<Rigidbody>().linearVelocity = exactVelocity;
+
+        isServing = false;
+        isBallTossed = false;
     }
 
     Vector3 GetRandomTargetPoint()
