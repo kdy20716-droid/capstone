@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VR SUPER SPORTS - 공식 테니스 리조트 아일랜드</title>
+  <meta name="description" content="맑은 하늘과 바다 위 거대한 테니스 섬! 3개의 경기장과 캐릭터, 6종 라켓, 볼 3D 모델을 마우스 드래그로 둘러보세요.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%200%20100%20100%22><text y=%22.9em%22 font-size=%2290%22>🎾</text></svg>">
+  
+  <script async src="https://unpkg.com/es-module-shims@1.8.2/dist/es-module-shims.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+        "three/examples/jsm/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- Initial Preloader Screen -->
+  <div id="initial-preloader" class="preloader-overlay">
+    <div class="preloader-content">
+      <div class="tennis-loader-icon">🎾</div>
+      <h2>VR SUPER SPORTS</h2>
+      <p>푸른 바다 위 메가 테니스 아일랜드로 입장하는 중...</p>
+      <div class="preloader-bar"><div class="bar-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- Background 3D Canvas (Mega Island, Ocean & 3 Stadiums) -->
+  <div id="island-canvas-container" class="canvas-background-fixed"></div>
+
+  <!-- Subtle Vignette / Cinematic Atmosphere Layer -->
+  <div class="cinematic-atmosphere-vignette"></div>
+
+  <!-- Top Center Brand Logo: 메인로고.png 적용 및 텍스트 제거 -->
+  <header class="top-brand-header">
+    <img src="assets/images/메인로고.png" alt="VR SUPER SPORTS" class="main-brand-logo-img">
+  </header>
+
+  <!-- Top Right Quick Controls -->
+  <div class="top-nav-buttons">
+    <button id="btn-sound-toggle" class="nav-glass-btn">🔊 ON</button>
+    <button id="btn-open-3d-modal" class="nav-glass-btn btn-cta-glow">
+      <span>🎮</span> 3D 모델 둘러보기
+    </button>
+  </div>
+
+  <!-- Top Progress Indicator -->
+  <div class="top-progress-bar">
+    <div id="scroll-progress-indicator" class="progress-fill"></div>
+  </div>
+
+  <!-- Floating Toast Cards: 첫 화면(하늘 뷰)에서는 텍스트 없이 3D 섬과 로고만 깔끔하게 조망, 휠 스크롤 시 코트 진입 -->
+  <div id="toast-cards-viewport" class="floating-toast-viewport">
+
+    <!-- Part 1: Main Stadium Arrival -->
+    <div class="floating-story-card" data-step="1">
+      <div class="card-visual-frame">
+        <img src="assets/images/hero_banner.jpg" alt="메인 챔피언십 코트">
+      </div>
+      <div class="card-glass-badge">🏟️ GRAND ACE DOME</div>
+      <h2 class="card-main-title">코트 위의 압도적 현장감</h2>
+      <p class="card-body-text">
+        오큘러스 스카이라이트 아래 펼쳐지는 프로 규격 블루 코트.<br>
+        화사한 조명과 관중의 환호 속에 첫 서브를 준비하세요.
+      </p>
+    </div>
+
+    <!-- Part 2: Physics & Motion -->
+    <div class="floating-story-card" data-step="2">
+      <div class="card-visual-frame">
+        <img src="assets/images/match_action.jpg" alt="2:2 복식 랠리">
+      </div>
+      <div class="card-glass-badge">⚡ REAL IMPACT</div>
+      <h2 class="card-main-title">손끝에 전해지는 묵직한 타구감</h2>
+      <p class="card-body-text">
+        톱스핀, 슬라이스, 강력한 스매시까지 자유자재로.<br>
+        0.01초 단위 모션 반응과 리얼 햅틱 피드백을 경험해보세요.
+      </p>
+    </div>
+
+    <!-- Part 3: 3D Model Interactive Viewer (최종 단계: 바로 3D 모달 연계) -->
+    <div class="floating-story-card" data-step="3">
+      <div class="card-visual-frame">
+        <img src="assets/images/gear_custom.jpg" alt="장비 커스텀 쇼케이스">
+      </div>
+      <div class="card-glass-badge">🎮 3D INTERACTIVE VIEW</div>
+      <h2 class="card-main-title">3D 모델 인터랙티브 둘러보기</h2>
+      <p class="card-body-text">
+        역동적인 캐릭터 폼, 6가지 컬러 라켓, 공인구와 코트까지.<br>
+        마우스 드래그로 360° 자유롭게 돌려보고 감상하세요.
+      </p>
+      <div class="card-cta-row">
+        <button id="btn-trigger-3d-viewer" class="btn-floating-cta">
+          ✨ 3D 모델 둘러보기 열기
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Tall Virtual Scroll Track -->
+  <div id="scroll-driver-track" class="scroll-track-container"></div>
+
+  <!-- =======================================================
+       3D Model Inspect Pop-up Modal Window ("슉 생기는 3D 둘러보기 창")
+  ======================================================= -->
+  <div id="model-inspect-modal" class="inspect-modal-overlay">
+    <div class="inspect-window-box">
+      <!-- Window Header -->
+      <div class="inspect-window-header">
+        <div class="window-title-group">
+          <span class="window-icon">🎾</span>
+          <h3 class="window-title">3D 모델 인터랙티브 뷰어</h3>
+        </div>
+        <button id="btn-close-inspect" class="btn-window-close" title="닫기">&times;</button>
+      </div>
+
+      <!-- Navigation Tabs for 4 Model Types -->
+      <div class="inspect-tabs">
+        <button class="inspect-tab-btn active" data-model="character">
+          <span>🏃‍♂️</span> 캐릭터 (스윙 모션)
+        </button>
+        <button class="inspect-tab-btn" data-model="racket">
+          <span>🏸</span> 테니스 라켓 (6종 컬러)
+        </button>
+        <button class="inspect-tab-btn" data-model="ball">
+          <span>🟡</span> 테니스 공 (정품 텍스처)
+        </button>
+        <button class="inspect-tab-btn" data-model="court">
+          <span>🏟️</span> 테니스 코트
+        </button>
+      </div>
+
+      <!-- Canvas Area for 3D Drag -->
+      <div class="inspect-canvas-wrapper">
+        <div id="inspect-canvas-container"></div>
+        <div class="inspect-drag-hint">
+          <span>🖱️ <strong>좌클릭 드래그:</strong> 360° 회전</span>
+          <span>🔍 <strong>휠:</strong> 줌</span>
+          <span>🖐️ <strong>우클릭:</strong> 이동</span>
+        </div>
+      </div>
+
+      <!-- Footer Controls for Character Motions / Racket 6 Colors / Info -->
+      <div class="inspect-footer-bar">
+        <!-- Character Motions (5가지 모션 선택) -->
+        <div id="character-motion-row" class="character-motion-palette">
+          <span class="palette-label">모션 선택:</span>
+          <button class="motion-btn active" data-motion="reap_swing">🎾 리핑 스윙</button>
+          <button class="motion-btn" data-motion="spin_attack">💥 스핀 어택</button>
+          <button class="motion-btn" data-motion="slash_swing">⚡ 슬래시 스윙</button>
+          <button class="motion-btn" data-motion="warrior_idle">🧘 워리어 대기</button>
+          <button class="motion-btn" data-motion="tennis_idle">🧍 테니스 대기</button>
+        </div>
+
+        <!-- 6 Racket Colors -->
+        <div id="racket-color-row" class="racket-color-palette" style="display: none;">
+          <span class="palette-label">라켓 6색 선택:</span>
+          <button class="palette-btn color-blue active" data-color="blue" title="오션 블루"></button>
+          <button class="palette-btn color-red" data-color="red" title="클래식 레드"></button>
+          <button class="palette-btn color-green" data-color="green" title="라임 그린"></button>
+          <button class="palette-btn color-orange" data-color="orange" title="선셋 오렌지"></button>
+          <button class="palette-btn color-pink" data-color="pink" title="네온 핑크"></button>
+          <button class="palette-btn color-yellow" data-color="yellow" title="비비드 옐로우"></button>
+        </div>
+
+        <div id="inspect-model-tip" class="model-tip-text">
+          마우스 드래그로 캐릭터의 역동적인 스윙과 3D 폼을 자유롭게 둘러보세요!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

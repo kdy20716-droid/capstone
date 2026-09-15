@@ -1,0 +1,13 @@
+{
+  "name": "vr-super-sports-website",
+  "version": "1.0.0",
+  "description": "Official Website and 3D Interactive Model Showcase for VR SUPER SPORTS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["vr", "sports", "tennis", "threejs", "3d-showcase"],
+  "author": "VR Super Sports Team",
+  "license": "MIT"
+}
