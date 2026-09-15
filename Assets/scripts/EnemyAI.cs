@@ -3,12 +3,12 @@ using UnityEngine;
 public class EnemyAI : MonoBehaviour
 {
     [Header("Movement")]
-    public float moveSpeed = 4f;
+    public float moveSpeed = 5.5f;
 
     [Header("Hit Settings")]
     public BoxCollider targetCourtArea; 
     public Transform racketCenter;      
-    public float hitRange = 3.0f;
+    public float hitRange = 3.5f;
     
     // AI의 타격 시 체공 시간 (랜덤 속도용)
     public float minFlightTime = 0.8f; 
@@ -40,13 +40,10 @@ public class EnemyAI : MonoBehaviour
 
     void FindBall()
     {
-        GameObject ballObj = GameObject.FindGameObjectWithTag("Ball");
-        if (ballObj != null) 
+        currentBall = Object.FindFirstObjectByType<Ball>();
+        if (currentBall != null) 
         {
-            currentBall = ballObj.GetComponent<Ball>();
-
-            // 공과 AI의 콜라이더 충돌 무시 (타격 시 튕김 방지)
-            Collider ballCollider = ballObj.GetComponent<Collider>();
+            Collider ballCollider = currentBall.GetComponent<Collider>();
             Collider myCollider = GetComponent<Collider>();
             if (ballCollider != null && myCollider != null)
             {
@@ -64,10 +61,9 @@ public class EnemyAI : MonoBehaviour
         
         if (currentBall != null)
         {
-            Rigidbody ballRb = currentBall.GetComponent<Rigidbody>();
-            ballRb.isKinematic = true;
-            ballRb.linearVelocity = Vector3.zero;
+            currentBall.SetKinematic(true);
             if (servePoint != null) currentBall.transform.position = servePoint.position;
+            currentBall.ResetBounceCount();
         }
     }
 
@@ -81,7 +77,11 @@ public class EnemyAI : MonoBehaviour
     void Update()
     {
         if (GameManager.Instance != null && !GameManager.Instance.isGameStarted) return;
-        if (currentBall == null) return;
+        if (currentBall == null) 
+        {
+            FindBall();
+            if (currentBall == null) return;
+        }
 
         if (isServing)
         {
@@ -90,17 +90,21 @@ public class EnemyAI : MonoBehaviour
         }
 
         Rigidbody ballRb = currentBall.GetComponent<Rigidbody>();
-        Vector3 directionToAI = transform.position - currentBall.transform.position;
-        bool isBallComing = Vector3.Dot(directionToAI, ballRb.linearVelocity) > 0;
+        // 플레이어 코트에서 적 코트 방향으로 날아오는 공 감지 (-Z 속도)
+        bool isBallComing = (ballRb != null && ballRb.linearVelocity.z < -0.2f);
 
         Vector3 targetPosition;
         if (isBallComing)
         {
-            targetPosition = new Vector3(currentBall.transform.position.x, transform.position.y, transform.position.z);
+            // X축: 공의 X 위치를 추적 (-5.0 ~ 5.0 코트 폭 내)
+            float targetX = Mathf.Clamp(currentBall.transform.position.x, -5.0f, 5.0f);
+            // Z축: 공의 낙하 지점을 향해 적 코트 영역(-27.0 ~ -19.0) 내에서 전진 인터셉트
+            float targetZ = Mathf.Clamp(currentBall.transform.position.z - 0.8f, -27.0f, -19.0f);
+            targetPosition = new Vector3(targetX, transform.position.y, targetZ);
         }
         else 
         {
-            targetPosition = new Vector3(startPosition.x, transform.position.y, transform.position.z);
+            targetPosition = new Vector3(startPosition.x, transform.position.y, startPosition.z);
         }
 
         Vector3 oldPos = transform.position;
@@ -112,7 +116,6 @@ public class EnemyAI : MonoBehaviour
             Vector3 velocity = (transform.position - oldPos) / Time.deltaTime;
             Vector3 relativeVelocity = transform.InverseTransformDirection(velocity);
             
-            // 속도를 최대 속도로 나누어 -1 ~ 1 사이 값으로 정규화
             float moveX = Mathf.Clamp(relativeVelocity.x / moveSpeed, -1f, 1f);
             float moveZ = Mathf.Clamp(relativeVelocity.z / moveSpeed, -1f, 1f);
             
@@ -122,7 +125,8 @@ public class EnemyAI : MonoBehaviour
 
         if (hitCooldown > 0) hitCooldown -= Time.deltaTime;
 
-        float distance = Vector3.Distance(racketCenter.position, currentBall.transform.position);
+        Transform hitOrigin = (racketCenter != null) ? racketCenter : transform;
+        float distance = Vector3.Distance(hitOrigin.position, currentBall.transform.position);
         if (distance <= hitRange && hitCooldown <= 0f && isBallComing)
         {
             EnemyHit();
@@ -144,7 +148,7 @@ public class EnemyAI : MonoBehaviour
         {
             // 토스된 공이 정점에 도달하거나 내려올 때 타격
             Rigidbody ballRb = currentBall.GetComponent<Rigidbody>();
-            if (ballRb.linearVelocity.y < 0.5f)
+            if (ballRb != null && ballRb.linearVelocity.y < 0.5f)
             {
                 EnemyHit();
                 isServing = false;
@@ -155,19 +159,23 @@ public class EnemyAI : MonoBehaviour
 
     void TossBall()
     {
+        if (currentBall == null) return;
         isBallTossed = true;
         Rigidbody ballRb = currentBall.GetComponent<Rigidbody>();
-        ballRb.isKinematic = false;
-        ballRb.linearVelocity = Vector3.up * tossForce;
+        if (ballRb != null)
+        {
+            ballRb.isKinematic = false;
+            ballRb.linearVelocity = Vector3.up * tossForce;
+        }
     }
 
     [Header("Timing Settings")]
-    public float hitDelay = 0.25f; // AI는 약간의 여유를 둠
+    public float hitDelay = 0.15f; 
 
     void EnemyHit()
     {
-        Debug.Log("AI가 휘두르기를 시작합니다!");
-        hitCooldown = 1.5f; 
+        Debug.Log("<color=green>[EnemyAI]</color> AI가 타격을 시작합니다!");
+        hitCooldown = 1.2f; 
 
         // 1. 애니메이션 즉시 실행
         if (animator != null) animator.SetTrigger("hit");
@@ -188,22 +196,34 @@ public class EnemyAI : MonoBehaviour
 
     private void ApplyHitVelocity()
     {
+        if (currentBall == null) return;
         Vector3 randomTarget = GetRandomTargetPoint();
         float randomFlightTime = Random.Range(minFlightTime, maxFlightTime);
         
         Vector3 exactVelocity = CalculateVelocity(randomTarget, currentBall.transform.position, randomFlightTime);
-        currentBall.GetComponent<Rigidbody>().linearVelocity = exactVelocity;
+        Rigidbody ballRb = currentBall.GetComponent<Rigidbody>();
+        if (ballRb != null)
+        {
+            ballRb.isKinematic = false;
+            ballRb.linearVelocity = exactVelocity;
+        }
 
         isServing = false;
         isBallTossed = false;
+        currentBall.ResetBounceCount();
     }
 
     Vector3 GetRandomTargetPoint()
     {
-        if (targetCourtArea == null) return Vector3.zero;
+        if (targetCourtArea == null) 
+        {
+            return new Vector3(Random.Range(-3f, 3f), 0.1f, Random.Range(-7f, -4f));
+        }
         Bounds bounds = targetCourtArea.bounds;
-        float randomX = Random.Range(bounds.min.x, bounds.max.x);
-        float randomZ = Random.Range(bounds.min.z, bounds.max.z);
+        float marginX = bounds.size.x * 0.15f;
+        float marginZ = bounds.size.z * 0.15f;
+        float randomX = Random.Range(bounds.min.x + marginX, bounds.max.x - marginX);
+        float randomZ = Random.Range(bounds.min.z + marginZ, bounds.max.z - marginZ);
         return new Vector3(randomX, bounds.min.y, randomZ);
     }
 
@@ -212,27 +232,43 @@ public class EnemyAI : MonoBehaviour
         Vector3 distance = target - origin;
         Vector3 distanceXZ = distance;
         distanceXZ.y = 0f;
-        float Vxz = distanceXZ.magnitude / time;
-        
-        float gravity = Mathf.Abs(Physics.gravity.y);
-        float Vy = distance.y / time + 0.5f * gravity * time;
+        float distXZMag = distanceXZ.magnitude;
+        if (distXZMag < 0.001f) return Vector3.up * 5f;
 
+        float gravity = Mathf.Abs(Physics.gravity.y);
+        float flightTime = Mathf.Max(0.5f, time);
+
+        // 네트를 안전하게 넘기기 위한 최소 체공 시간 계산
         if (netPoint != null)
         {
             Vector3 toNet = netPoint.position - origin;
             toNet.y = 0f;
-            float timeToNet = toNet.magnitude / Vxz;
+            float netDist = toNet.magnitude;
 
-            float targetNetHeight = netPoint.position.y + netClearance;
-            float currentNetHeightAtTime = origin.y + (Vy * timeToNet) - (0.5f * gravity * timeToNet * timeToNet);
-
-            if (currentNetHeightAtTime < targetNetHeight)
+            if (netDist > 0.1f && netDist < distXZMag)
             {
-                Vy = (targetNetHeight - origin.y + 0.5f * gravity * timeToNet * timeToNet) / timeToNet;
+                float alpha = netDist / distXZMag;
+                float targetNetHeight = netPoint.position.y + netClearance;
+                float requiredNetArc = targetNetHeight - origin.y - (target.y - origin.y) * alpha;
+
+                if (requiredNetArc > 0f)
+                {
+                    float denom = 0.5f * gravity * alpha * (1f - alpha);
+                    if (denom > 0.001f)
+                    {
+                        float minTime = Mathf.Sqrt(requiredNetArc / denom);
+                        if (flightTime < minTime)
+                        {
+                            flightTime = minTime;
+                        }
+                    }
+                }
             }
         }
 
-        Vy = Mathf.Clamp(Vy, -10f, 15f);
+        // 보정된 실제 체공 시간에 맞춘 정밀 수평/수직 속도
+        float Vxz = distXZMag / flightTime;
+        float Vy = (target.y - origin.y) / flightTime + 0.5f * gravity * flightTime;
 
         Vector3 result = distanceXZ.normalized * Vxz;
         result.y = Vy;

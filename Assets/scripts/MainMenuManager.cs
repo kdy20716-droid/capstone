@@ -32,10 +32,27 @@ public class MainMenuManager : MonoBehaviour
             else if (btn.name == "QuitBtn") btn.onClick.AddListener(QuitGame);
             else if (btn.name == "PCSelectBtn") btn.onClick.AddListener(OnSelectPC);
             else if (btn.name == "VRSelectBtn") btn.onClick.AddListener(OnSelectVR);
-            else if (btn.name == "PCStartConfirmBtn") btn.onClick.AddListener(() => LoadScene(pcGameScene));
+            else if (btn.name == "PCStartConfirmBtn")
+            {
+                btn.interactable = false;
+                var tmp = btn.GetComponentInChildren<TextMeshProUGUI>();
+                if (tmp != null) tmp.text = "PC 준비중";
+                var img = btn.GetComponent<Image>();
+                if (img != null) img.color = new Color(0.2f, 0.2f, 0.2f, 0.6f);
+            }
             else if (btn.name == "VRStartConfirmBtn") btn.onClick.AddListener(() => LoadScene(vrGameScene));
             else if (btn.name == "BackToMainBtn") btn.onClick.AddListener(ShowMainPanel);
             else if (btn.name == "BackToSelectionBtn") btn.onClick.AddListener(ShowSelection);
+        }
+
+        // PC 상세 패널 텍스트 런타임 확정
+        if (pcDetailPanel != null)
+        {
+            var infoText = pcDetailPanel.transform.Find("Content/Info")?.GetComponent<TextMeshProUGUI>();
+            if (infoText != null)
+            {
+                infoText.text = "<size=60>PC 준비중</size>\n\n현재 PC 버전은 준비 중입니다.\nVR 모드로 플레이해 주세요.";
+            }
         }
     }
 

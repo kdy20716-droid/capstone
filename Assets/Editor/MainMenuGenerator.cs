@@ -59,8 +59,8 @@ public class MainMenuGenerator : Editor
         CreateBackButton("BackToMainBtn", selectionPanel.transform);
 
         // 4. Detail Panels (PC & VR 둘 다 생성)
-        GameObject pcDetail = CreateDetailPanel("PC_DetailPanel", canvasObj.transform, "PC Mode Controls", "WASD : Move\nMouse : Hit", "PCStartConfirmBtn");
-        GameObject vrDetail = CreateDetailPanel("VR_DetailPanel", canvasObj.transform, "VR Mode Controls", "Joystick : Move\nSwing : Hit", "VRStartConfirmBtn");
+        GameObject pcDetail = CreateDetailPanel("PC_DetailPanel", canvasObj.transform, "PC 준비중", "현재 PC 버전은 준비 중입니다.\nVR 모드로 플레이해 주세요.", "PCStartConfirmBtn", "PC 준비중", false);
+        GameObject vrDetail = CreateDetailPanel("VR_DetailPanel", canvasObj.transform, "VR Mode Controls", "Joystick : Move\nSwing : Hit", "VRStartConfirmBtn", "START GAME", true);
 
         // 5. Manager 설정 및 연결
         MainMenuManager manager = canvasObj.AddComponent<MainMenuManager>();
@@ -169,7 +169,7 @@ public class MainMenuGenerator : Editor
         tmp.text = "BACK"; tmp.fontSize = 24; tmp.alignment = TextAlignmentOptions.Center;
     }
 
-    private static GameObject CreateDetailPanel(string name, Transform parent, string titleStr, string descStr, string confirmBtnName)
+    private static GameObject CreateDetailPanel(string name, Transform parent, string titleStr, string descStr, string confirmBtnName, string btnLabel = "START GAME", bool isInteractable = true)
     {
         GameObject panel = CreateUIObject(name, parent);
         SetRectFull(panel);
@@ -197,7 +197,20 @@ public class MainMenuGenerator : Editor
         tmp.alignment = TextAlignmentOptions.Left;
 
         // 하단 시작 버튼
-        CreateSimpleButton(confirmBtnName, panel.transform, "START GAME", new Vector2(0, -400));
+        CreateSimpleButton(confirmBtnName, panel.transform, btnLabel, new Vector2(0, -400));
+        
+        // 버튼 비활성화 처리 (준비중인 경우)
+        if (!isInteractable)
+        {
+            Transform btnTr = panel.transform.Find(confirmBtnName);
+            if (btnTr != null)
+            {
+                Button btn = btnTr.GetComponent<Button>();
+                if (btn != null) btn.interactable = false;
+                Image btnImg = btnTr.GetComponent<Image>();
+                if (btnImg != null) btnImg.color = new Color(0.2f, 0.2f, 0.2f, 0.6f);
+            }
+        }
         
         // 왼쪽 상단 BACK 버튼
         CreateBackButton("BackToSelectionBtn", panel.transform);

@@ -2,36 +2,52 @@ using UnityEngine;
 
 public class RacketHit : MonoBehaviour
 {
-    private PlayerController player;
+    private PlayerController pcPlayer;
+    private VRPlayerController vrPlayer;
+    private float lastHitTime = 0f;
 
     void Start()
     {
-        // 씬에서 플레이어 컨트롤러를 찾습니다.
-        player = Object.FindFirstObjectByType<PlayerController>();
+        pcPlayer = Object.FindFirstObjectByType<PlayerController>();
+        vrPlayer = Object.FindFirstObjectByType<VRPlayerController>();
     }
 
-    // 라켓의 Collider가 'Is Trigger'가 체크되어 있지 않을 때 실행됩니다.
+    private void TryHit(GameObject ballObj)
+    {
+        if (Time.time - lastHitTime < 0.3f) return;
+        lastHitTime = Time.time;
+
+        if (GameManager.Instance != null && GameManager.Instance.isVRMode)
+        {
+            if (vrPlayer == null) vrPlayer = Object.FindFirstObjectByType<VRPlayerController>();
+            if (vrPlayer != null)
+            {
+                vrPlayer.OnRacketHit();
+            }
+        }
+        else
+        {
+            if (pcPlayer == null) pcPlayer = Object.FindFirstObjectByType<PlayerController>();
+            if (pcPlayer != null)
+            {
+                pcPlayer.PerformHit();
+            }
+        }
+    }
+
     private void OnCollisionEnter(Collision collision)
     {
-        if (collision.gameObject.CompareTag("Ball"))
+        if (collision.gameObject.CompareTag("Ball") || collision.gameObject.GetComponent<Ball>() != null)
         {
-            // PC 모드에서는 자동 타격을 하지 않습니다. (Update에서 클릭 시 처리)
-            // VR 모드일 때만 라켓 휘두르기로 타격이 가능하도록 제한할 수 있습니다.
-            if (player != null && GameManager.Instance != null && GameManager.Instance.isVRMode)
-            {
-                player.PerformHit();
-            }
+            TryHit(collision.gameObject);
         }
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Ball"))
+        if (other.CompareTag("Ball") || other.GetComponent<Ball>() != null)
         {
-            if (player != null && GameManager.Instance != null && GameManager.Instance.isVRMode)
-            {
-                player.PerformHit();
-            }
+            TryHit(other.gameObject);
         }
     }
 }

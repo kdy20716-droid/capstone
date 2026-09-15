@@ -400,22 +400,44 @@ public class PlayerController : MonoBehaviour
         Vector3 distance = target - origin;
         Vector3 distanceXZ = distance;
         distanceXZ.y = 0f;
-        float Vxz = distanceXZ.magnitude / time;
-        float gravity = Mathf.Abs(Physics.gravity.y);
-        float Vy = distance.y / time + 0.5f * gravity * time;
+        float distXZMag = distanceXZ.magnitude;
+        if (distXZMag < 0.001f) return Vector3.up * 5f;
 
+        float gravity = Mathf.Abs(Physics.gravity.y);
+        float flightTime = Mathf.Max(0.5f, time);
+
+        // 네트를 안전하게 넘기기 위한 최소 체공 시간 계산
         if (netPoint != null)
         {
             Vector3 toNet = netPoint.position - origin;
             toNet.y = 0f;
-            float timeToNet = toNet.magnitude / Vxz;
-            float targetNetHeight = netPoint.position.y + netClearance;
-            float currentNetHeightAtTime = origin.y + (Vy * timeToNet) - (0.5f * gravity * timeToNet * timeToNet);
-            if (currentNetHeightAtTime < targetNetHeight)
-                Vy = (targetNetHeight - origin.y + 0.5f * gravity * timeToNet * timeToNet) / timeToNet;
+            float netDist = toNet.magnitude;
+
+            if (netDist > 0.1f && netDist < distXZMag)
+            {
+                float alpha = netDist / distXZMag;
+                float targetNetHeight = netPoint.position.y + netClearance;
+                float requiredNetArc = targetNetHeight - origin.y - (target.y - origin.y) * alpha;
+
+                if (requiredNetArc > 0f)
+                {
+                    float denom = 0.5f * gravity * alpha * (1f - alpha);
+                    if (denom > 0.001f)
+                    {
+                        float minTime = Mathf.Sqrt(requiredNetArc / denom);
+                        if (flightTime < minTime)
+                        {
+                            flightTime = minTime;
+                        }
+                    }
+                }
+            }
         }
 
-        Vy = Mathf.Clamp(Vy, -10f, 15f);
+        // 보정된 실제 체공 시간에 맞춘 정밀 수평/수직 속도
+        float Vxz = distXZMag / flightTime;
+        float Vy = (target.y - origin.y) / flightTime + 0.5f * gravity * flightTime;
+
         Vector3 result = distanceXZ.normalized * Vxz;
         result.y = Vy;
         return result;

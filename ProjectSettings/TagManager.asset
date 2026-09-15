@@ -8,6 +8,9 @@ TagManager:
   - Ball
   - Enemy
   - Net
+  - Court
+  - Player
+  - Racket
   layers:
   - Default
   - TransparentFX
@@ -15,9 +18,9 @@ TagManager:
   - 
   - Water
   - UI
-  - 
-  - 
-  - 
+  - Player
+  - Court
+  - Floor
   - 
   - 
   - 

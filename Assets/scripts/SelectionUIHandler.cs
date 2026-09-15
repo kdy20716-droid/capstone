@@ -15,7 +15,11 @@ public class SelectionUIHandler : MonoBehaviour
             else if (btn.name == "CharNextBtn") btn.onClick.AddListener(() => { Debug.Log("CharNextBtn Clicked"); GameManager.Instance.NextCharacter(); });
             else if (btn.name == "RacketPrevBtn") btn.onClick.AddListener(() => { Debug.Log("RacketPrevBtn Clicked"); GameManager.Instance.PrevRacket(); });
             else if (btn.name == "RacketNextBtn") btn.onClick.AddListener(() => { Debug.Log("RacketNextBtn Clicked"); GameManager.Instance.NextRacket(); });
-            else if (btn.name == "PlayBtn") btn.onClick.AddListener(() => { Debug.Log("PlayBtn Clicked"); GameManager.Instance.GameStart(false); });
+            else if (btn.name == "PlayBtn") btn.onClick.AddListener(() => { 
+                bool isVR = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("VR") || Object.FindFirstObjectByType<VRPlayerController>() != null;
+                Debug.Log($"PlayBtn Clicked (isVR: {isVR})"); 
+                GameManager.Instance.GameStart(isVR); 
+            });
             else if (btn.name == "VRPlayBtn") btn.onClick.AddListener(() => { Debug.Log("VRPlayBtn Clicked"); GameManager.Instance.GameStart(true); });
             else Debug.Log($"[SelectionUIHandler] Unassigned button found: {btn.name}");
         }

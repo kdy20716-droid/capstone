@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using TMPro;
 
 public class GameManager : MonoBehaviour
@@ -57,10 +58,18 @@ public class GameManager : MonoBehaviour
 
     private string[] tennisScores = { "0", "15", "30", "40", "Adv", "Win" };
 
+    private UnityEngine.InputSystem.InputAction vrPauseAction;
+
     void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+
+        // VR 씬이거나 VRPlayerController가 있으면 자동으로 VR 모드 확정
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("VR") || Object.FindFirstObjectByType<VRPlayerController>() != null)
+        {
+            isVRMode = true;
+        }
     }
 
     public void NotifyBallOut(GameObject trigger)
@@ -100,23 +109,47 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+        // VR 일시정지 액션 바인딩
+        vrPauseAction = new UnityEngine.InputSystem.InputAction("VRPause", UnityEngine.InputSystem.InputActionType.Button);
+        vrPauseAction.AddBinding("<XRController>{LeftHand}/menuButton");
+        vrPauseAction.AddBinding("<XRController>{RightHand}/menuButton");
+        vrPauseAction.Enable();
+
         // 인게임 캔버스 및 점수 텍스트 초기 비활성화
         if (pcCanvas != null) pcCanvas.SetActive(false);
         if (vrCanvas != null) vrCanvas.SetActive(false);
         if (pcScoreText != null) pcScoreText.gameObject.SetActive(false);
         if (vrScoreText != null) vrScoreText.gameObject.SetActive(false);
         
-        // 플레이 카메라 및 플레이어 캐릭터 초기 비활성화
+        // 플레이 카메라 및 플레이어 캐릭터 초기 설정
         if (playCamera != null) playCamera.SetActive(false);
         if (pcPlayerRig != null) pcPlayerRig.SetActive(false);
-        if (vrPlayerRig != null) vrPlayerRig.SetActive(false);
+        
+        if (isVRMode)
+        {
+            // VR 모드에서는 헤드셋 시점(Main Camera)과 컨트롤러를 유지하기 위해 vrPlayerRig를 상시 활성화
+            if (vrPlayerRig != null) vrPlayerRig.SetActive(true);
+        }
+        else
+        {
+            if (vrPlayerRig != null) vrPlayerRig.SetActive(false);
+        }
 
-        // 게임 시작 전이라면 셀렉트 UI와 카메라를 강제로 활성화 (InputAutoSwitcher 대체)
+        // 게임 시작 전이라면 모드에 맞춰 셀렉트 UI 활성화 (VR 환경에서는 PC UI 원천 차단)
         if (!isGameStarted)
         {
-            if (pcSelectionUI != null) pcSelectionUI.SetActive(true);
-            if (vrSelectionUI != null) vrSelectionUI.SetActive(true);
-            if (selectionCamera != null) selectionCamera.SetActive(true);
+            if (isVRMode)
+            {
+                if (pcSelectionUI != null) pcSelectionUI.SetActive(false);
+                if (vrSelectionUI != null) vrSelectionUI.SetActive(true);
+                if (selectionCamera != null) selectionCamera.SetActive(false);
+            }
+            else
+            {
+                if (pcSelectionUI != null) pcSelectionUI.SetActive(true);
+                if (vrSelectionUI != null) vrSelectionUI.SetActive(false);
+                if (selectionCamera != null) selectionCamera.SetActive(true);
+            }
         }
 
         UpdateSelectionVisuals();
@@ -125,8 +158,9 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        // ESC 키로 일시정지 메뉴 토글
-        if (Input.GetKeyDown(KeyCode.Escape))
+        // ESC 키 또는 VR 메뉴 버튼으로 일시정지 토글
+        bool pausePressed = Input.GetKeyDown(KeyCode.Escape) || (vrPauseAction != null && vrPauseAction.triggered);
+        if (pausePressed)
         {
             if (pauseMenuPanel != null)
             {
@@ -142,8 +176,26 @@ public class GameManager : MonoBehaviour
         {
             pauseMenuPanel.SetActive(true);
             Time.timeScale = 0f; // 시간 정지
-            Cursor.visible = true;
-            Cursor.lockState = CursorLockMode.None;
+            
+            if (isVRMode)
+            {
+                Camera cam = Camera.main;
+                if (cam != null)
+                {
+                    Vector3 forward = cam.transform.forward;
+                    forward.y = 0;
+                    if (forward.sqrMagnitude > 0.001f) forward.Normalize();
+                    else forward = Vector3.forward;
+
+                    pauseMenuPanel.transform.position = cam.transform.position + forward * 1.5f + Vector3.up * 0.1f;
+                    pauseMenuPanel.transform.rotation = Quaternion.LookRotation(forward);
+                }
+            }
+            else
+            {
+                Cursor.visible = true;
+                Cursor.lockState = CursorLockMode.None;
+            }
         }
     }
 
@@ -154,8 +206,8 @@ public class GameManager : MonoBehaviour
             pauseMenuPanel.SetActive(false);
             Time.timeScale = 1f; // 시간 재개
 
-            // 게임이 시작된 상태였다면 커서를 다시 숨김
-            if (isGameStarted)
+            // 게임이 시작된 상태였다면 커서를 다시 숨김 (PC 모드)
+            if (!isVRMode && isGameStarted)
             {
                 Cursor.visible = false;
                 Cursor.lockState = CursorLockMode.Locked;
@@ -180,7 +232,16 @@ public class GameManager : MonoBehaviour
     public void GameStart(bool useVR)
     {
         isGameStarted = true;
-        isVRMode = useVR;
+        
+        // VR 씬이거나 VRPlayerController가 존재하는 경우 무조건 VR 모드 고정
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("VR") || Object.FindFirstObjectByType<VRPlayerController>() != null)
+        {
+            isVRMode = true;
+        }
+        else
+        {
+            isVRMode = useVR;
+        }
 
         // 인게임 캔버스 활성화
         if (pcCanvas != null) pcCanvas.SetActive(!isVRMode);
@@ -266,24 +327,21 @@ public class GameManager : MonoBehaviour
 
     void UpdateSelectionVisuals()
     {
-        // PC용 UI 업데이트
-        if (characterSprites.Length > 0 && charImageDisplay != null)
-        {
-            charImageDisplay.sprite = characterSprites[selectedCharacterIndex];
-        }
-        if (racketSprites.Length > 0 && racketImageDisplay != null)
-        {
-            racketImageDisplay.sprite = racketSprites[selectedRacketIndex];
-        }
+        // PC / VR 공용 폴백 이미지 디스플레이 결정
+        var charImg = vrCharImageDisplay != null ? vrCharImageDisplay : charImageDisplay;
+        var racketImg = vrRacketImageDisplay != null ? vrRacketImageDisplay : racketImageDisplay;
 
-        // VR용 UI 업데이트
-        if (characterSprites.Length > 0 && vrCharImageDisplay != null)
+        if (characterSprites != null && characterSprites.Length > 0)
         {
-            vrCharImageDisplay.sprite = characterSprites[selectedCharacterIndex];
+            if (charImageDisplay != null) charImageDisplay.sprite = characterSprites[selectedCharacterIndex];
+            if (vrCharImageDisplay != null) vrCharImageDisplay.sprite = characterSprites[selectedCharacterIndex];
+            if (charImg != null) charImg.sprite = characterSprites[selectedCharacterIndex];
         }
-        if (racketSprites.Length > 0 && vrRacketImageDisplay != null)
+        if (racketSprites != null && racketSprites.Length > 0)
         {
-            vrRacketImageDisplay.sprite = racketSprites[selectedRacketIndex];
+            if (racketImageDisplay != null) racketImageDisplay.sprite = racketSprites[selectedRacketIndex];
+            if (vrRacketImageDisplay != null) vrRacketImageDisplay.sprite = racketSprites[selectedRacketIndex];
+            if (racketImg != null) racketImg.sprite = racketSprites[selectedRacketIndex];
         }
     }
 
@@ -297,7 +355,11 @@ public class GameManager : MonoBehaviour
     private int playerGamesWon = 0; // 실제 따낸 판 수
     private int enemyGamesWon = 0;
 
-    public void GameStart() { GameStart(false); }
+    public void GameStart() 
+    { 
+        bool isVR = isVRMode || UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("VR") || Object.FindFirstObjectByType<VRPlayerController>() != null;
+        GameStart(isVR); 
+    }
 
     public void AddPoint(bool isPlayer)
     {
