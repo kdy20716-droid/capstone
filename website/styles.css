@@ -143,28 +143,55 @@ body {
 }
 
 /* =========================================================
-   Top Brand Logo (메인로고.png)
+   Hero Center Brand Logo (화면 중앙에서 살짝 위, 큰 사이즈, 스르륵 사라짐/등장)
 ========================================================= */
-.top-brand-header {
+.hero-brand-container {
   position: fixed;
-  top: 18px;
+  top: 36%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%) scale(1);
   z-index: 150;
   pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1),
+              visibility 0.55s;
 }
 
-.main-brand-logo-img {
-  height: 52px;
-  max-width: 280px;
+.hero-brand-container.hidden {
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -60%) scale(0.85);
+  pointer-events: none;
+}
+
+.hero-brand-logo-img {
+  width: min(540px, 80vw);
+  max-height: 250px;
   object-fit: contain;
-  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.35));
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: drop-shadow(0 16px 36px rgba(0, 40, 110, 0.42))
+          drop-shadow(0 4px 12px rgba(0, 140, 255, 0.28))
+          drop-shadow(0 -2px 6px rgba(255, 255, 255, 0.65));
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), filter 0.35s ease;
   cursor: pointer;
+  animation: heroLogoFloat 3.4s ease-in-out infinite alternate;
 }
 
-.main-brand-logo-img:hover {
-  transform: scale(1.05);
+.hero-brand-logo-img:hover {
+  transform: scale(1.06) rotate(-0.8deg);
+  filter: drop-shadow(0 20px 42px rgba(0, 70, 180, 0.55))
+          drop-shadow(0 4px 16px rgba(56, 189, 248, 0.5))
+          drop-shadow(0 -2px 8px rgba(255, 255, 255, 0.9));
+}
+
+@keyframes heroLogoFloat {
+  0% {
+    transform: translateY(0px);
+  }
+  100% {
+    transform: translateY(-8px);
+  }
 }
 
 /* =========================================================
@@ -209,6 +236,27 @@ body {
   color: white;
   border-color: transparent;
   box-shadow: 0 6px 20px rgba(0,119,230,0.42);
+}
+
+.btn-tod-glow {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #0284c7;
+  font-weight: 800;
+}
+
+.btn-tod-glow.tod-sunset {
+  background: linear-gradient(135deg, #f97316, #c026d3);
+  color: white;
+  border-color: #fed7aa;
+  box-shadow: 0 4px 18px rgba(249, 115, 22, 0.4);
+}
+
+.btn-tod-glow.tod-night {
+  background: linear-gradient(135deg, #0f172a, #1e1b4b);
+  color: #38bdf8;
+  border-color: #38bdf8;
+  box-shadow: 0 4px 18px rgba(56, 189, 248, 0.35);
 }
 
 .btn-cta-glow:hover {
@@ -413,9 +461,13 @@ body {
   text-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
-/* CTA Row */
 .card-cta-row {
-  margin-top: 6px;
+  margin-top: 10px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .btn-floating-cta {

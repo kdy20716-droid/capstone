@@ -7,7 +7,16 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["vr", "sports", "tennis", "threejs", "3d-showcase"],
+  "keywords": [
+    "vr",
+    "sports",
+    "tennis",
+    "threejs",
+    "3d-showcase"
+  ],
   "author": "VR Super Sports Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "canvas": "^3.2.3"
+  }
 }

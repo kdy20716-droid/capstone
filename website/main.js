@@ -100,6 +100,30 @@ function initApp() {
     playSound('pop');
   });
 
+  // =======================================================
+  // Time of Day (시간대) 토글: 낮 ➔ 노을 저녁 ➔ 밤 순환
+  // =======================================================
+  const todBtn = document.getElementById('btn-tod-toggle');
+  if (todBtn && islandViewer) {
+    todBtn.addEventListener('click', () => {
+      const nextMode = islandViewer.cycleTimeOfDay();
+      playSound('whoosh');
+
+      if (nextMode === 'day') {
+        todBtn.innerHTML = '🌅 노을 모드';
+        todBtn.classList.remove('tod-sunset', 'tod-night');
+      } else if (nextMode === 'sunset') {
+        todBtn.innerHTML = '🌙 나이트 모드';
+        todBtn.classList.remove('tod-night');
+        todBtn.classList.add('tod-sunset');
+      } else if (nextMode === 'night') {
+        todBtn.innerHTML = '☀️ 데이 모드';
+        todBtn.classList.remove('tod-sunset');
+        todBtn.classList.add('tod-night');
+      }
+    });
+  }
+
   // 사용자의 첫 인터랙션(클릭, 키 입력 등) 시 BGM 자연스러운 시작 시도
   const handleFirstInteraction = () => {
     startBgm();
@@ -116,24 +140,51 @@ function initApp() {
   // =======================================================
   const progressBar = document.getElementById('scroll-progress-indicator');
   const skyHint = document.getElementById('sky-hint-pill');
+  const heroLogo = document.getElementById('hero-brand-container');
 
   let currentActiveIndex = 0;
-  const TOTAL_STEPS = 4; // 0, 1, 2, 3
+  const TOTAL_STEPS = 11; // 0: 하늘(낮), 1~3: 테니스(낮), 4~6: 볼링(노을), 7~9: 검술(밤), 10: 항공뷰 피날레(밤)
   let isTransitioning = false;
   let targetProgress = 0;
   let currentAnimatedProgress = 0;
 
-  // Step별 카메라 시네마틱 위치 매핑 (0.0: 하늘 조망, 0.35: 코트 다이브, 0.7: 모션 뷰, 1.0: 3D 쇼케이스)
-  const stepProgressMap = [0.0, 0.32, 0.68, 1.0];
+  // Step별 카메라 시네마틱 위치 매핑 (각 경기장 3스텝 완결 후 장거리 활공)
+  const stepProgressMap = [
+    0.0,   // Step 0: 오프닝 스카이뷰 (낮)
+    0.10,  // Step 1: 🎾 테니스 코트 전경 (낮)
+    0.18,  // Step 2: 🎾 테니스 랠리 & 피직스 (낮)
+    0.26,  // Step 3: 🎾 테니스 라켓 & 장비 (낮)
+    0.44,  // Step 4: 🎳 볼링 돔 전경 (노을)
+    0.52,  // Step 5: 🎳 볼링 스핀 훅 & 레인 (노을)
+    0.60,  // Step 6: 🎳 볼링 프로 볼 & 장비 (노을)
+    0.76,  // Step 7: ⚔️ 검술 아레나 전경 (밤)
+    0.84,  // Step 8: ⚔️ 검술 공방 & 패링 (밤)
+    0.90,  // Step 9: ⚔️ 검술 네온 블레이드 & 장비 (밤)
+    1.00   // Step 10: 🏆 3대 경기장 항공뷰 피날레 (밤)
+  ];
 
-  let enterCourtTimer = null;
+  // 경기장별 시간대 매핑: 테니스(0~3)=낮, 볼링(4~6)=노을, 검술/항공뷰(7~10)=밤
+  const stepTimeMap = {
+    0: 'day',
+    1: 'day',
+    2: 'day',
+    3: 'day',
+    4: 'sunset',
+    5: 'sunset',
+    6: 'sunset',
+    7: 'night',
+    8: 'night',
+    9: 'night',
+    10: 'night'
+  };
+
+  let enterStadiumTimer = null;
 
   function goToStep(newIndex, isForward = true) {
     if (newIndex < 0 || newIndex >= TOTAL_STEPS) return;
-
     if (newIndex === currentActiveIndex) return;
 
-    clearTimeout(enterCourtTimer);
+    clearTimeout(enterStadiumTimer);
 
     const oldCard = document.querySelector(`.floating-story-card[data-step="${currentActiveIndex}"]`);
     const newCard = document.querySelector(`.floating-story-card[data-step="${newIndex}"]`);
@@ -143,19 +194,27 @@ function initApp() {
       oldCard.classList.add(isForward ? 'slide-out-up' : 'slide-out-down');
     }
 
-    // 첫 화면(0: 하늘)에서 1번(경기장 코트)으로 이동할 때만:
-    // 카메라가 경기장으로 슈웅 이동한 뒤 1초 후에 카드가 스르륵 뜨도록 연출
-    if (newIndex === 1 && currentActiveIndex === 0) {
+    // 경기장 간 이동(테니스->볼링, 볼링->검술, 검술->항공뷰) 시
+    // 카메라가 여유롭게 날아간 뒤 카드가 뜨도록 부드러운 타이밍 연출
+    const isCrossFlight = (
+      (newIndex === 1 && currentActiveIndex === 0) ||
+      (currentActiveIndex <= 3 && newIndex >= 4) ||
+      (currentActiveIndex >= 4 && currentActiveIndex <= 6 && newIndex >= 7) ||
+      (currentActiveIndex <= 9 && newIndex === 10) ||
+      (newIndex === 0)
+    );
+
+    if (isCrossFlight && newIndex > 0) {
       if (newCard) {
         newCard.classList.remove('active', 'slide-out-up', 'slide-out-down');
       }
-      enterCourtTimer = setTimeout(() => {
-        if (currentActiveIndex === 1 && newCard) {
+      enterStadiumTimer = setTimeout(() => {
+        if (currentActiveIndex === newIndex && newCard) {
           newCard.classList.remove('slide-out-up', 'slide-out-down');
           newCard.classList.add('active');
           playSound('whoosh');
         }
-      }, 1000);
+      }, 550);
     } else {
       if (newCard) {
         newCard.classList.remove('slide-out-up', 'slide-out-down');
@@ -167,12 +226,42 @@ function initApp() {
     currentActiveIndex = newIndex;
     targetProgress = stepProgressMap[newIndex] || 0;
 
-    // 프로그레스 바 갱신
+    // 경기장 이동에 따른 시간대(Time of Day) 자동 전환: 테니스=낮, 볼링=노을, 검술/항공뷰=밤
+    const targetTod = stepTimeMap[newIndex] || 'day';
+    if (islandViewer && islandViewer.currentTod !== targetTod) {
+      islandViewer.setTimeOfDay(targetTod);
+
+      // 상단 시간대 토글 버튼 텍스트 & 스타일 동기화
+      if (todBtn) {
+        if (targetTod === 'day') {
+          todBtn.innerHTML = '🌅 노을 모드';
+          todBtn.classList.remove('tod-sunset', 'tod-night');
+        } else if (targetTod === 'sunset') {
+          todBtn.innerHTML = '🌙 나이트 모드';
+          todBtn.classList.remove('tod-night');
+          todBtn.classList.add('tod-sunset');
+        } else if (targetTod === 'night') {
+          todBtn.innerHTML = '☀️ 데이 모드';
+          todBtn.classList.remove('tod-sunset');
+          todBtn.classList.add('tod-night');
+        }
+      }
+    }
+
+    // 상단 얇은 프로그레스 바 갱신
     if (progressBar) {
       progressBar.style.width = newIndex === 0 ? '0%' : `${(newIndex / (TOTAL_STEPS - 1)) * 100}%`;
     }
 
-    // 첫 스텝 벗어나면 하늘 힌트 숨기기
+    // 첫 스텝 벗어나면 하늘 힌트 및 중앙 메인 로고 스르륵 숨기기, 첫 스텝(0) 복귀 시 뿅 나타나기
+    if (heroLogo) {
+      if (newIndex > 0) {
+        heroLogo.classList.add('hidden');
+      } else {
+        heroLogo.classList.remove('hidden');
+      }
+    }
+
     if (skyHint) {
       if (newIndex > 0) skyHint.classList.add('hidden');
       else skyHint.classList.remove('hidden');
@@ -250,12 +339,12 @@ function initApp() {
     { passive: true }
   );
 
-  // 카메라 프로그레스 부드러운 애니메이션 루프
+  // 카메라 프로그레스 부드러운 애니메이션 루프 (더 천천히 부드럽게 활공하도록 0.052 적용)
   function animateCameraStep() {
     requestAnimationFrame(animateCameraStep);
     const diff = targetProgress - currentAnimatedProgress;
-    if (Math.abs(diff) > 0.001) {
-      currentAnimatedProgress += diff * 0.08;
+    if (Math.abs(diff) > 0.0005) {
+      currentAnimatedProgress += diff * 0.052;
       if (islandViewer) {
         islandViewer.updateCameraForScroll(currentAnimatedProgress);
       }
@@ -271,6 +360,7 @@ function initApp() {
   const btnOpenModal = document.getElementById('btn-open-3d-modal');
   const btnTriggerViewer = document.getElementById('btn-trigger-3d-viewer');
   const btnReInspect = document.getElementById('btn-re-inspect');
+  const btnRestartTour = document.getElementById('btn-restart-tour');
 
   function openInspectModal(initialModel = 'character') {
     if (!inspectModal) return;
@@ -296,6 +386,20 @@ function initApp() {
   btnTriggerViewer?.addEventListener('click', () => openInspectModal('character'));
   btnReInspect?.addEventListener('click', () => openInspectModal('character'));
   btnCloseInspect?.addEventListener('click', closeInspectModal);
+
+  // 각 스토리 카드의 "3D 모델 둘러보기" 버튼들 일괄 연동
+  const inspectSportBtns = document.querySelectorAll('.btn-open-sport-inspect');
+  inspectSportBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      openInspectModal('character');
+    });
+  });
+
+  // 피날레 카드의 "처음부터 다시 둘러보기" 버튼
+  btnRestartTour?.addEventListener('click', () => {
+    goToStep(0, false);
+    playSound('pop');
+  });
 
   inspectModal?.addEventListener('click', (e) => {
     if (e.target === inspectModal) closeInspectModal();
