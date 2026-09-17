@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   createNintendoGrassTexture,
   createResortWaterTexture,
@@ -7,7 +8,9 @@ import {
   createGlowSpriteTexture,
   addGrandAceDomeShell,
   createFloatingBalloonsGroup,
-  createFestiveFireworksSystem
+  createFestiveFireworksSystem,
+  createSwayingGrassSystem,
+  createResortPathwaysSystem
 } from './procedural-assets.js';
 import { ModelInspectModalViewer } from './model-inspector.js';
 
@@ -64,8 +67,11 @@ class TennisIslandCinematicViewer {
     // 경기장 투광 조명 및 은은한 렌즈 글로우 스프라이트 리스트
     this.stadiumFloodLights = [];
     this.stadiumGlowSprites = [];
+    this.stadiumCrownGlowSprites = [];
+    this.stadiumCoreLights = [];
     this.stadiumBulbMaterial = null;
     this.stadiumLightMaterials = [];
+    this.resortPathways = null;
 
     this.initScene();
     this.initEmotionalSky();
@@ -73,6 +79,7 @@ class TennisIslandCinematicViewer {
     this.initAtmosphereParticles();
     this.initLights();
     this.loadThreeStadiums();
+    this.setTimeOfDay('day');
     this.initEventListeners();
 
     this.animate = this.animate.bind(this);
@@ -186,43 +193,36 @@ class TennisIslandCinematicViewer {
       return shape;
     };
 
-    // 2. 바다 밑 얕은 터콰이즈 산호초 림 (해안가 에메랄드 워터 엣지)
-    const reefShape = createOrganicShape(445, 0.22, 140, 1);
-    const reefGeo = new THREE.ShapeGeometry(reefShape);
-    const reefMat = new THREE.MeshStandardMaterial({
-      color: 0x22d3ee,
-      roughness: 0.35,
-      metalness: 0.1,
-      transparent: true,
-      opacity: 0.72
-    });
-    const reefMesh = new THREE.Mesh(reefGeo, reefMat);
-    reefMesh.rotation.x = -Math.PI / 2;
-    reefMesh.position.y = -0.45;
-    this.islandGroup.add(reefMesh);
-
-    // 3. 햇살 가득한 황금빛 모래사장 비치 (반지름 410)
-    const sandShape = createOrganicShape(410, 0.18, 140, 2);
+    // 2. 햇살 가득한 황금빛 모래사장 비치 (잔디보다 확실히 아래 y: -0.55로 배치하여 번쩍임 완벽 제거)
+    const sandShape = createOrganicShape(415, 0.18, 140, 2);
     const sandGeo = new THREE.ShapeGeometry(sandShape);
+    const sandTex = this.textureLoader.load('assets/textures/sand_diffuse.jpg');
+    sandTex.wrapS = THREE.RepeatWrapping;
+    sandTex.wrapT = THREE.RepeatWrapping;
+    sandTex.repeat.set(32, 32);
     const sandMat = new THREE.MeshStandardMaterial({
-      color: 0xfef08a,
-      roughness: 0.85,
-      metalness: 0.05
+      map: sandTex,
+      roughness: 0.9,
+      metalness: 0.04
     });
     const sandMesh = new THREE.Mesh(sandGeo, sandMat);
     sandMesh.rotation.x = -Math.PI / 2;
-    sandMesh.position.y = -0.15;
+    sandMesh.position.y = -0.55;
     sandMesh.receiveShadow = true;
     this.islandGroup.add(sandMesh);
 
-    // 4. 싱그러운 닌텐도 2톤 체커보드 메가 잔디 평원 (반지름 385)
-    const grassShape = createOrganicShape(385, 0.15, 140, 3);
+    // 3. 싱그러운 메인 잔디 평원 (산뜻하고 싱그러운 리조트 잔디 그린 & 밑바닥 겹침/번쩍임 완전 차단)
+    const grassShape = createOrganicShape(390, 0.15, 140, 3);
     const grassGeo = new THREE.ShapeGeometry(grassShape);
-    const grassTex = createNintendoGrassTexture();
+    const grassTex = this.textureLoader.load('assets/textures/grass_diffuse.jpg');
+    grassTex.wrapS = THREE.RepeatWrapping;
+    grassTex.wrapT = THREE.RepeatWrapping;
+    grassTex.repeat.set(22, 22);
     const grassMat = new THREE.MeshStandardMaterial({
+      color: 0x3ea82a, // 살짝 더 밝고 산뜻해진 리조트 잔디 그린
       map: grassTex,
-      roughness: 0.78,
-      metalness: 0.05
+      roughness: 0.76,
+      metalness: 0.02
     });
     const grassMesh = new THREE.Mesh(grassGeo, grassMat);
     grassMesh.rotation.x = -Math.PI / 2;
@@ -230,7 +230,23 @@ class TennisIslandCinematicViewer {
     grassMesh.receiveShadow = true;
     this.islandGroup.add(grassMesh);
 
-    // 5. 주변을 둘러싼 아기자기한 열대 부속 섬 5개
+    // 3.5 주황색 리조트 연결 도로 & 가로등 시스템 (경기장 간 연결 길목 & 가로수)
+    this.resortPathways = createResortPathwaysSystem();
+    this.islandGroup.add(this.resortPathways.group);
+
+    // 4. 바람에 살랑살랑 흔들리는 조그마한 3D 잔디 풀밭 (도로 위 침범 방지)
+    const stadiumAreas = [
+      { x: -160, z: 0, radius: 96 },
+      { x: 130, z: -150, radius: 94 },
+      { x: 130, z: 150, radius: 94 }
+    ];
+    this.swayingGrassSystem = createSwayingGrassSystem(
+      stadiumAreas,
+      (x, z) => this.resortPathways.isPointOnRoad(x, z, 2.0)
+    );
+    this.islandGroup.add(this.swayingGrassSystem.mesh);
+
+    // 5. 주변을 둘러싼 아기자기한 열대 부속 섬 5개 (모래 -> 잔디)
     const subIslands = [
       { x: -440, z: -260, r: 80 },
       { x: -390, z: 310, r: 95 },
@@ -240,20 +256,12 @@ class TennisIslandCinematicViewer {
     ];
 
     subIslands.forEach((isle, idx) => {
-      const subCoral = new THREE.Mesh(
-        new THREE.ShapeGeometry(createOrganicShape(isle.r * 1.35, 0.15, 60, idx + 2)),
-        reefMat
-      );
-      subCoral.rotation.x = -Math.PI / 2;
-      subCoral.position.set(isle.x, -0.6, isle.z);
-      this.islandGroup.add(subCoral);
-
       const subSand = new THREE.Mesh(
         new THREE.ShapeGeometry(createOrganicShape(isle.r * 1.15, 0.12, 60, idx + 4)),
         sandMat
       );
       subSand.rotation.x = -Math.PI / 2;
-      subSand.position.set(isle.x, -0.3, isle.z);
+      subSand.position.set(isle.x, -0.4, isle.z);
       this.islandGroup.add(subSand);
 
       const subGrass = new THREE.Mesh(
@@ -261,51 +269,74 @@ class TennisIslandCinematicViewer {
         grassMat
       );
       subGrass.rotation.x = -Math.PI / 2;
-      subGrass.position.set(isle.x, -0.05, isle.z);
+      subGrass.position.set(isle.x, 0.0, isle.z);
       subGrass.receiveShadow = true;
       this.islandGroup.add(subGrass);
     });
 
-    // 6. 닌텐도 카툰풍 열대 야자수 배치
-    const trunkGeo = new THREE.CylinderGeometry(0.8, 1.3, 8.5, 8);
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.75 });
-    const leavesLowerGeo = new THREE.SphereGeometry(4.8, 8, 8);
-    const leavesUpperGeo = new THREE.SphereGeometry(3.6, 8, 8);
-    const leavesMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.5 });
-    const leavesTopMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.5 });
+    // 6. 리얼 3D 열대 야자수 가로수 및 숲 모델링 (GLB 3D 에셋)
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.load('assets/models/trees/palm_tree.glb', (gltf) => {
+      const palmTemplate = gltf.scene;
+      palmTemplate.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          if (child.material) {
+            child.material.roughness = 0.55;
+            child.material.side = THREE.DoubleSide;
+          }
+        }
+      });
 
-    for (let i = 0; i < 110; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const r = 210 + Math.random() * 165;
-      const tx = Math.cos(angle) * r;
-      const tz = Math.sin(angle) * r;
+      // 6-A. 가는 길목 주변에 가로수 야자수 정렬 배치 ("길주변에는 나무가 있어")
+      if (this.resortPathways && this.resortPathways.roadsideTreePositions) {
+        this.resortPathways.roadsideTreePositions.forEach((pos) => {
+          // 경기장 돔과의 겹침 방지
+          const distToLeft = Math.hypot(pos.x - (-160), pos.z);
+          const distToTopRight = Math.hypot(pos.x - 130, pos.z - (-150));
+          const distToBottomRight = Math.hypot(pos.x - 130, pos.z - 150);
+          if (distToLeft < 86 || distToTopRight < 84 || distToBottomRight < 84) return;
 
-      // 돔 스타디움과의 충돌 방지
-      const distToLeft = Math.hypot(tx - (-160), tz);
-      const distToTopRight = Math.hypot(tx - 130, tz - (-150));
-      const distToBottomRight = Math.hypot(tx - 130, tz - 150);
+          const treeInstance = palmTemplate.clone(true);
+          const scale = 2.4 + Math.random() * 1.1; // 아늑한 휴양지 가로수 크기
+          treeInstance.scale.set(scale, scale * (0.9 + Math.random() * 0.25), scale);
+          treeInstance.position.set(pos.x, 0.0, pos.z);
+          treeInstance.rotation.y = Math.random() * Math.PI * 2;
+          treeInstance.rotation.z = (Math.random() - 0.5) * 0.10;
 
-      if (distToLeft < 98 || distToTopRight < 95 || distToBottomRight < 95) continue;
+          this.islandGroup.add(treeInstance);
+        });
+      }
 
-      const tree = new THREE.Group();
-      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-      trunk.position.y = 4.25;
-      trunk.rotation.z = (Math.random() - 0.5) * 0.16;
+      // 6-B. 섬 전역의 자연스러운 야자수 숲 (도로 위에는 절대 심지 않음 - "길에는 나무가 없고")
+      for (let i = 0; i < 95; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = 180 + Math.random() * 195;
+        const tx = Math.cos(angle) * r;
+        const tz = Math.sin(angle) * r;
 
-      const leavesLower = new THREE.Mesh(leavesLowerGeo, leavesMat);
-      leavesLower.position.y = 9.2;
-      leavesLower.scale.set(1.1, 0.65, 1.1);
+        // 돔 스타디움과의 충돌 방지
+        const distToLeft = Math.hypot(tx - (-160), tz);
+        const distToTopRight = Math.hypot(tx - 130, tz - (-150));
+        const distToBottomRight = Math.hypot(tx - 130, tz - 150);
+        if (distToLeft < 98 || distToTopRight < 95 || distToBottomRight < 95) continue;
 
-      const leavesUpper = new THREE.Mesh(leavesUpperGeo, leavesTopMat);
-      leavesUpper.position.y = 11.5;
-      leavesUpper.scale.set(0.9, 0.75, 0.9);
+        // 도로와의 충돌 방지 (길 위 생성 차단)
+        if (this.resortPathways && this.resortPathways.isPointOnRoad(tx, tz, 8.5)) continue;
 
-      tree.add(trunk);
-      tree.add(leavesLower);
-      tree.add(leavesUpper);
-      tree.position.set(tx, 0, tz);
-      this.islandGroup.add(tree);
-    }
+        const treeInstance = palmTemplate.clone(true);
+        const scale = 2.6 + Math.random() * 1.6; // 높이 13 ~ 21 유닛의 자연스러운 야자수
+        treeInstance.scale.set(scale, scale * (0.9 + Math.random() * 0.25), scale);
+        treeInstance.position.set(tx, 0.0, tz);
+        treeInstance.rotation.y = Math.random() * Math.PI * 2;
+        treeInstance.rotation.z = (Math.random() - 0.5) * 0.12;
+
+        this.islandGroup.add(treeInstance);
+      }
+    }, undefined, (err) => {
+      console.error('Failed to load palm_tree.glb:', err);
+    });
 
     // 7. 먼 바다의 귀여운 리조트 세일보트 (요트)
     this.boatsGroup = new THREE.Group();
@@ -422,6 +453,27 @@ class TennisIslandCinematicViewer {
     const bulbGeo = new THREE.SphereGeometry(0.55, 12, 12);
     const glowTex = createGlowSpriteTexture();
 
+    // 0. 스타디움 돔 상부 오큘러스 크라운 글로우 스프라이트 (멀리서 봐도 어둡지 않은 몽환적인 아레나 헤일로)
+    const crownGlowMat = new THREE.SpriteMaterial({
+      map: glowTex,
+      color: 0x67e8f9,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const crownGlowSprite = new THREE.Sprite(crownGlowMat);
+    crownGlowSprite.position.set(0, 52, 0);
+    crownGlowSprite.scale.set(45.0, 45.0, 1.0);
+    stadiumUnit.add(crownGlowSprite);
+    this.stadiumCrownGlowSprites.push({ sprite: crownGlowSprite, mat: crownGlowMat });
+
+    // 0.5. 스타디움 내부 코트 코어 조명 (PointLight: 오큘러스 천장 위로 빛이 솟아오름)
+    const coreLight = new THREE.PointLight(0xfffae6, 0.1, 150, 1.0);
+    coreLight.position.set(0, 22, 0);
+    stadiumUnit.add(coreLight);
+    this.stadiumCoreLights.push(coreLight);
+
     towerConfigs.forEach((cfg) => {
       const tower = new THREE.Group();
       tower.position.set(cfg.x, 8, cfg.z);
@@ -480,7 +532,7 @@ class TennisIslandCinematicViewer {
       glowSprite.position.set(0, 0, 1.8);
       glowSprite.scale.set(6.0, 6.0, 1.0);
       headGroup.add(glowSprite);
-      this.stadiumGlowSprites.push(glowMat);
+      this.stadiumGlowSprites.push({ sprite: glowSprite, mat: glowMat });
 
       tower.add(headGroup);
       stadiumUnit.add(tower);
@@ -577,36 +629,110 @@ class TennisIslandCinematicViewer {
       }
     }
 
-    // 3. 조명탑 주변광 & 렌즈 글로우 스프라이트 제어
+    // 3. 조명탑 주변광 & 렌즈 글로우 스프라이트 & 스타디움 돔 크라운 글로우 제어
     if (mode === 'day') {
       this.stadiumFloodLights.forEach((light) => {
         light.color.setHex(0xfffae6);
         light.intensity = 0.05;
         light.distance = 90;
       });
-      this.stadiumGlowSprites.forEach((mat) => {
-        mat.opacity = 0.0;
+      this.stadiumGlowSprites.forEach((item) => {
+        item.mat.opacity = 0.0;
+        item.sprite.scale.set(6.0, 6.0, 1.0);
+      });
+      this.stadiumCrownGlowSprites.forEach((item) => {
+        item.mat.opacity = 0.0;
+      });
+      this.stadiumCoreLights.forEach((light) => {
+        light.color.setHex(0xfffae6);
+        light.intensity = 0.1;
       });
     } else if (mode === 'sunset') {
       this.stadiumFloodLights.forEach((light) => {
         light.color.setHex(0xffaa44);
-        light.intensity = 0.35;
-        light.distance = 120;
+        light.intensity = 0.45;
+        light.distance = 130;
       });
-      this.stadiumGlowSprites.forEach((mat) => {
-        mat.color.setHex(0xffaa44);
-        mat.opacity = 0.45; // 노을 앰버빛 은은한 글로우
+      this.stadiumGlowSprites.forEach((item) => {
+        item.mat.color.setHex(0xffaa44);
+        item.mat.opacity = 0.55;
+        item.sprite.scale.set(10.0, 10.0, 1.0);
+      });
+      this.stadiumCrownGlowSprites.forEach((item) => {
+        item.mat.color.setHex(0xf59e0b);
+        item.mat.opacity = 0.28;
+        item.sprite.scale.set(55.0, 55.0, 1.0);
+      });
+      this.stadiumCoreLights.forEach((light) => {
+        light.color.setHex(0xffa834);
+        light.intensity = 0.7;
+        light.distance = 150;
       });
     } else if (mode === 'night') {
+      // 밤 시간대: 멀리서 봐도 너무 어둡지 않게 은은하고 영롱한 스타디움 돔 글로우 & 코어 조명 강화
       this.stadiumFloodLights.forEach((light) => {
         light.color.setHex(0xffffff);
-        light.intensity = 0.55;
-        light.distance = 135;
+        light.intensity = 1.35;
+        light.distance = 185;
       });
-      this.stadiumGlowSprites.forEach((mat) => {
-        mat.color.setHex(0xffffff);
-        mat.opacity = 0.70; // 밤하늘에 반짝이는 영롱한 화이트 글로우
+      this.stadiumGlowSprites.forEach((item) => {
+        item.mat.color.setHex(0xe2f1ff);
+        item.mat.opacity = 0.90; // 조명탑 렌즈 글로우
+        item.sprite.scale.set(16.0, 16.0, 1.0);
       });
+      this.stadiumCrownGlowSprites.forEach((item) => {
+        item.mat.color.setHex(0x67e8f9); // 스타디움 돔 상공의 소프트 스카이블루 아레나 헤일로
+        item.mat.opacity = 0.52; // 과하지 않고 자연스러운 원경 조명 효과
+        item.sprite.scale.set(70.0, 70.0, 1.0);
+      });
+      this.stadiumCoreLights.forEach((light) => {
+        light.color.setHex(0x93c5fd);
+        light.intensity = 1.8;
+        light.distance = 190;
+      });
+    }
+
+    // 3.5 길목 가로등 (Street Lamps) 밤 시간대 발광 & 조명 제어 ("가는 길목 주변에 가로등도 있어서 밤에는 밝게 빛나도록")
+    if (this.resortPathways && this.resortPathways.lampBulbMaterial) {
+      if (mode === 'day') {
+        this.resortPathways.lampBulbMaterial.emissive.setHex(0xfffae6);
+        this.resortPathways.lampBulbMaterial.emissiveIntensity = 0.05;
+        this.resortPathways.streetLamps.forEach((lamp) => {
+          if (lamp.glowMat) lamp.glowMat.opacity = 0.0;
+          if (lamp.light) lamp.light.intensity = 0.0;
+        });
+      } else if (mode === 'sunset') {
+        this.resortPathways.lampBulbMaterial.emissive.setHex(0xffaa44);
+        this.resortPathways.lampBulbMaterial.emissiveIntensity = 0.75;
+        this.resortPathways.streetLamps.forEach((lamp) => {
+          if (lamp.glowMat) {
+            lamp.glowMat.color.setHex(0xffaa44);
+            lamp.glowMat.opacity = 0.55;
+            lamp.sprite.scale.set(8.0, 8.0, 1.0);
+          }
+          if (lamp.light) {
+            lamp.light.color.setHex(0xffaa44);
+            lamp.light.intensity = 0.65;
+            lamp.light.distance = 42;
+          }
+        });
+      } else if (mode === 'night') {
+        // 밤에는 가로등이 영롱한 온백색/골든 앰버로 밝게 빛남
+        this.resortPathways.lampBulbMaterial.emissive.setHex(0xfff3b0);
+        this.resortPathways.lampBulbMaterial.emissiveIntensity = 2.0;
+        this.resortPathways.streetLamps.forEach((lamp) => {
+          if (lamp.glowMat) {
+            lamp.glowMat.color.setHex(0xffe680);
+            lamp.glowMat.opacity = 0.95;
+            lamp.sprite.scale.set(12.5, 12.5, 1.0);
+          }
+          if (lamp.light) {
+            lamp.light.color.setHex(0xffe680);
+            lamp.light.intensity = 1.65;
+            lamp.light.distance = 55;
+          }
+        });
+      }
     }
 
     // 4. 고휘도 LED 전구 머티리얼 발광 조율
@@ -616,10 +742,10 @@ class TennisIslandCinematicViewer {
         this.stadiumBulbMaterial.emissiveIntensity = 0.1;
       } else if (mode === 'sunset') {
         this.stadiumBulbMaterial.emissive.setHex(0xffa834);
-        this.stadiumBulbMaterial.emissiveIntensity = 0.35;
+        this.stadiumBulbMaterial.emissiveIntensity = 0.45;
       } else if (mode === 'night') {
         this.stadiumBulbMaterial.emissive.setHex(0xffffff);
-        this.stadiumBulbMaterial.emissiveIntensity = 0.50;
+        this.stadiumBulbMaterial.emissiveIntensity = 1.35;
       }
     }
 
@@ -630,10 +756,10 @@ class TennisIslandCinematicViewer {
         mat.emissiveIntensity = 0.1;
       } else if (mode === 'sunset') {
         mat.emissive.setHex(0xff9922);
-        mat.emissiveIntensity = 0.35;
+        mat.emissiveIntensity = 0.45;
       } else if (mode === 'night') {
         mat.emissive.setHex(0xffffff);
-        mat.emissiveIntensity = 0.45;
+        mat.emissiveIntensity = 1.2;
       }
     });
 
@@ -961,6 +1087,11 @@ class TennisIslandCinematicViewer {
     // 5. 밤낮 가리지 않고 하늘에 계속 펑펑 터지는 축제 폭죽
     if (this.fireworksSystem) {
       this.fireworksSystem.update(delta);
+    }
+
+    // 6. 바람에 살랑살랑 흔들리는 조그마한 3D 잔디 풀밭 애니메이션
+    if (this.swayingGrassSystem) {
+      this.swayingGrassSystem.update(elapsed);
     }
 
     // 경기장 간 이동 시 어지럽지 않도록 여유롭고 부드러운 시네마틱 댐핑 (0.042)

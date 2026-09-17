@@ -226,8 +226,8 @@ export function addGrandAceDomeShell(stadiumUnit) {
   ribbon.position.y = 25.0;
   domeGroup.add(ribbon);
 
-  // 4. 발광 시안 LED 엣지 링
-  const ledGeo = new THREE.TorusGeometry(68.0, 0.4, 8, segments);
+  // 4. 발광 시안 LED 엣지 링 (원경 가시성을 위해 두께 최적화 및 상단 오큘러스 림 추가)
+  const ledGeo = new THREE.TorusGeometry(68.0, 0.75, 8, segments);
   const ledMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
   const ledTop = new THREE.Mesh(ledGeo, ledMat);
   ledTop.name = 'stadium_led_ring';
@@ -240,6 +240,13 @@ export function addGrandAceDomeShell(stadiumUnit) {
   ledBot.rotation.x = Math.PI / 2;
   ledBot.position.y = 21.8;
   domeGroup.add(ledBot);
+
+  const ledOculusGeo = new THREE.TorusGeometry(43.8, 0.7, 8, segments);
+  const ledOculus = new THREE.Mesh(ledOculusGeo, ledMat);
+  ledOculus.name = 'stadium_led_ring';
+  ledOculus.rotation.x = Math.PI / 2;
+  ledOculus.position.y = 50.6;
+  domeGroup.add(ledOculus);
 
   // 5. 돔 상부 완만한 유선형 지붕 (원형 오큘러스 개구부로 연결, y: 29.8 ~ 50.5)
   // 티어 1: 반지름 67.8 -> 60, 높이 8.0
@@ -401,65 +408,46 @@ export function createFloatingBalloonsGroup() {
     return single;
   }
 
-  // 1. 풍선 다발 클러스터 (Clusters) 7개 (각 경기장 상공 및 중앙 만, 언덕)
-  const clusterSpots = [
-    { x: -140, y: 75, z: 45 },    // 테니스 돔 남쪽 상공
-    { x: -180, y: 95, z: -40 },   // 테니스 돔 북서쪽 상공
-    { x: 110,  y: 85, z: -120 },  // 볼링 돔 남서쪽 상공
-    { x: 160,  y: 105, z: -180 }, // 볼링 돔 북동쪽 상공
-    { x: 110,  y: 80, z: 120 },   // 검술 아레나 북서쪽 상공
-    { x: 160,  y: 100, z: 180 },  // 검술 아레나 남동쪽 상공
-    { x: -15,  y: 110, z: 30 },   // 리조트 중앙 만(bay) 상공
+  // 풍선 사이사이 간격을 넉넉히 띄워 겹치지 않게 섬 하늘 전역에 분산 배치 (최소 거리 28 유닛 이상 확보)
+  const wellSpacedAnchors = [
+    { x: -165, y: 72, z: 70 },
+    { x: -130, y: 96, z: -60 },
+    { x: -195, y: 82, z: -25 },
+    { x: 95,   y: 76, z: -165 },
+    { x: 155,  y: 94, z: -105 },
+    { x: 175,  y: 112, z: -175 },
+    { x: 95,   y: 74, z: 165 },
+    { x: 155,  y: 95, z: 115 },
+    { x: 175,  y: 108, z: 185 },
+    { x: 0,    y: 88, z: 0 },
+    { x: -45,  y: 102, z: 75 },
+    { x: 45,   y: 82, z: -65 },
+    { x: -85,  y: 108, z: -135 },
+    { x: 85,   y: 80, z: 65 },
+    { x: -115, y: 92, z: 145 },
+    { x: 55,   y: 108, z: 145 },
+    { x: -75,  y: 84, z: -45 },
+    { x: 95,   y: 98, z: -45 },
+    { x: -215, y: 90, z: 35 },
+    { x: 205,  y: 88, z: 75 },
+    { x: -35,  y: 118, z: -95 },
+    { x: 35,   y: 115, z: 95 }
   ];
 
-  clusterSpots.forEach((spot, cIdx) => {
-    const cluster = new THREE.Group();
-    cluster.position.set(spot.x, spot.y, spot.z);
-
-    const count = 5;
-    for (let i = 0; i < count; i++) {
-      const color = balloonColors[(cIdx * 3 + i) % balloonColors.length];
-      const b = createSingleBalloon(color, 0.88 + (i % 3) * 0.14);
-      const angle = (i / count) * Math.PI * 2;
-      const rad = 1.6 + (i % 2) * 1.0;
-      b.position.set(
-        Math.cos(angle) * rad,
-        ((i % 3) - 1) * 1.5,
-        Math.sin(angle) * rad
-      );
-      b.rotation.z = (Math.random() - 0.5) * 0.25;
-      cluster.add(b);
-    }
-
-    balloonsRoot.add(cluster);
-    balloonItems.push({
-      group: cluster,
-      baseY: spot.y,
-      speed: 1.0 + (cIdx % 4) * 0.2,
-      phase: cIdx * 1.2
-    });
-  });
-
-  // 2. 단독으로 섬 하늘을 유유히 둥둥 떠다니는 자유 풍선들 (Roaming Free Balloons) 18개
-  for (let i = 0; i < 18; i++) {
-    const color = balloonColors[i % balloonColors.length];
-    const b = createSingleBalloon(color, 0.95 + Math.random() * 0.45);
-    const angle = (i / 18) * Math.PI * 2 + (i % 2) * 0.3;
-    const r = 100 + (i * 27) % 220;
-    const y = 65 + (i * 13) % 75;
-    const x = Math.cos(angle) * r;
-    const z = Math.sin(angle) * r;
-
-    b.position.set(x, y, z);
+  wellSpacedAnchors.forEach((pos, idx) => {
+    const color = balloonColors[idx % balloonColors.length];
+    const b = createSingleBalloon(color, 1.05 + (idx % 3) * 0.16);
+    b.position.set(pos.x, pos.y, pos.z);
+    b.rotation.z = (Math.random() - 0.5) * 0.18;
     balloonsRoot.add(b);
 
     balloonItems.push({
       group: b,
-      baseY: y,
-      speed: 0.8 + (i % 5) * 0.15,
-      phase: i * 0.7
+      baseY: pos.y,
+      speed: 0.9 + (idx % 5) * 0.18,
+      phase: idx * 0.85
     });
-  }
+  });
 
   return {
     group: balloonsRoot,
@@ -649,5 +637,569 @@ export function createFestiveFireworksSystem() {
         }
       });
     }
+  };
+}
+
+/* =========================================================================
+   4. 바람에 살랑살랑 흔들리는 조그마한 3D 잔디 풀밭 시스템 (Instanced Grass Tufts)
+========================================================================= */
+export function createSwayingGrassSystem(stadiumCenters = [], isRoadCollision = null) {
+  const geom = new THREE.BufferGeometry();
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+
+  const bladeCount = 3;
+  for (let b = 0; b < bladeCount; b++) {
+    const angle = (b / bladeCount) * Math.PI;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const w = 0.45;
+    const h = 1.7;
+
+    // Triangle 1
+    positions.push(-w * cos, 0, -w * sin);
+    normals.push(-sin, 0.2, cos);
+    uvs.push(0, 0);
+
+    positions.push(w * cos, 0, w * sin);
+    normals.push(-sin, 0.2, cos);
+    uvs.push(1, 0);
+
+    positions.push(0.12 * cos, h, 0.12 * sin);
+    normals.push(-sin, 0.2, cos);
+    uvs.push(0.5, 1);
+
+    // Triangle 2 (back face)
+    positions.push(w * cos, 0, w * sin);
+    normals.push(sin, 0.2, -cos);
+    uvs.push(1, 0);
+
+    positions.push(-w * cos, 0, -w * sin);
+    normals.push(sin, 0.2, -cos);
+    uvs.push(0, 0);
+
+    positions.push(0.12 * cos, h, 0.12 * sin);
+    normals.push(sin, 0.2, -cos);
+    uvs.push(0.5, 1);
+  }
+
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+
+  // Grass Material with GPU Vertex Wind Animation
+  const grassMat = new THREE.MeshStandardMaterial({
+    color: 0x42b22e,
+    roughness: 0.72,
+    metalness: 0.04,
+    side: THREE.DoubleSide
+  });
+
+  grassMat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = { value: 0 };
+    shader.vertexShader = `
+      uniform float uTime;
+      \${shader.vertexShader}
+    `;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `
+      #include <begin_vertex>
+      float h = max(0.0, transformed.y);
+      vec4 worldPos = modelMatrix * vec4(position, 1.0);
+      float sway = sin(uTime * 2.6 + worldPos.x * 0.1 + worldPos.z * 0.12) * 0.35 * h;
+      float swayZ = cos(uTime * 2.0 + worldPos.x * 0.12 + worldPos.z * 0.09) * 0.25 * h;
+      transformed.x += sway;
+      transformed.z += swayZ;
+      `
+    );
+    grassMat.userData.shader = shader;
+  };
+
+  const TOTAL_TUFTS = 1400;
+  const instancedMesh = new THREE.InstancedMesh(geom, grassMat, TOTAL_TUFTS);
+  instancedMesh.receiveShadow = true;
+
+  const dummy = new THREE.Object3D();
+  let count = 0;
+
+  for (let i = 0; i < TOTAL_TUFTS * 2 && count < TOTAL_TUFTS; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = 25 + Math.random() * 355;
+    const tx = Math.cos(angle) * r;
+    const tz = Math.sin(angle) * r;
+
+    // 경기장 충돌 회피
+    let collides = false;
+    for (const sc of stadiumCenters) {
+      if (Math.hypot(tx - sc.x, tz - sc.z) < sc.radius) {
+        collides = true;
+        break;
+      }
+    }
+    if (collides) continue;
+
+    // 도로 충돌 회피 (주황색 도로 위에는 잔디가 돋지 않도록)
+    if (isRoadCollision && isRoadCollision(tx, tz)) continue;
+
+    dummy.position.set(tx, 0.0, tz);
+    const scale = 0.85 + Math.random() * 0.7;
+    dummy.scale.set(scale, scale * (0.9 + Math.random() * 0.35), scale);
+    dummy.rotation.y = Math.random() * Math.PI * 2;
+    dummy.rotation.x = (Math.random() - 0.5) * 0.12;
+    dummy.rotation.z = (Math.random() - 0.5) * 0.12;
+    dummy.updateMatrix();
+
+    instancedMesh.setMatrixAt(count, dummy.matrix);
+    count++;
+  }
+
+  instancedMesh.instanceMatrix.needsUpdate = true;
+
+  return {
+    mesh: instancedMesh,
+    update(elapsed) {
+      if (grassMat.userData.shader) {
+        grassMat.userData.shader.uniforms.uTime.value = elapsed;
+      }
+    }
+  };
+}
+
+/* =========================================================================
+   5. 경기장 간 연결 주황색 도로 & 가로등 & 가로수 시스템
+   (Orange Connecting Pathways, Street Lamps, and Roadside Palm Trees)
+========================================================================= */
+
+// 주황색 스포츠 리조트 트랙 캔버스 텍스처 생성기
+export function createResortRoadTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+
+  // 1. 선명하고 산뜻한 스포츠 리조트 오렌지 트랙 베이스
+  ctx.fillStyle = '#ea580c'; // 짙은 테라코타 오렌지
+  ctx.fillRect(0, 0, 128, 512);
+
+  // 안쪽 주황색 러닝 트랙 본체
+  ctx.fillStyle = '#f97316';
+  ctx.fillRect(8, 0, 112, 512);
+
+  // 은은한 트랙 하이라이트 틴트
+  ctx.fillStyle = '#fb923c';
+  ctx.fillRect(16, 0, 96, 512);
+
+  // 2. 양쪽 사이드 화이트 라인 (달리기 트랙 / 산책로 경계선)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(12, 0, 5, 512);
+  ctx.fillRect(111, 0, 5, 512);
+
+  // 3. 중앙 화이트 점선 (Dashed Center Line)
+  ctx.fillStyle = '#ffffff';
+  const dashLen = 34;
+  const gapLen = 30;
+  for (let y = 0; y < 512; y += dashLen + gapLen) {
+    ctx.fillRect(61, y, 6, dashLen);
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+export function createResortPathwaysSystem() {
+  const pathwaysGroup = new THREE.Group();
+  pathwaysGroup.name = 'resort_pathways_system';
+
+  const roadTex = createResortRoadTexture();
+  const roadMat = new THREE.MeshStandardMaterial({
+    map: roadTex,
+    roughness: 0.65,
+    metalness: 0.05,
+    side: THREE.DoubleSide
+  });
+
+  const plazaMat = new THREE.MeshStandardMaterial({
+    color: 0xf97316,
+    roughness: 0.65,
+    metalness: 0.05,
+    side: THREE.DoubleSide
+  });
+
+  const curbMat = new THREE.MeshStandardMaterial({
+    color: 0xf8fafc,
+    roughness: 0.4,
+    metalness: 0.08,
+    side: THREE.DoubleSide
+  });
+
+  const lampMetalMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
+    roughness: 0.35,
+    metalness: 0.85
+  });
+
+  const lampBulbMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xfffae6,
+    emissiveIntensity: 0.05,
+    roughness: 0.15,
+    metalness: 0.1
+  });
+
+  const glowTex = createGlowSpriteTexture();
+
+  const streetLamps = [];
+  const roadsideTreePositions = [];
+  const sampledPathPoints = []; // 충돌 검사용 2D 샘플 포인트
+
+  // 1. 중앙 원형 로터리 광장 (Central Roundabout Plaza, radius 14 ~ 25)
+  const plazaRoadGeo = new THREE.RingGeometry(14, 25, 48);
+  const plazaRoad = new THREE.Mesh(plazaRoadGeo, plazaMat);
+  plazaRoad.rotation.x = -Math.PI / 2;
+  plazaRoad.position.y = 0.32;
+  plazaRoad.receiveShadow = true;
+  pathwaysGroup.add(plazaRoad);
+
+  // 로터리 외곽/내측 화이트 연석
+  const outerCurbGeo = new THREE.RingGeometry(24.8, 25.8, 48);
+  const outerCurb = new THREE.Mesh(outerCurbGeo, curbMat);
+  outerCurb.rotation.x = -Math.PI / 2;
+  outerCurb.position.y = 0.42;
+  pathwaysGroup.add(outerCurb);
+
+  const innerCurbGeo = new THREE.RingGeometry(13.2, 14.2, 48);
+  const innerCurb = new THREE.Mesh(innerCurbGeo, curbMat);
+  innerCurb.rotation.x = -Math.PI / 2;
+  innerCurb.position.y = 0.42;
+  pathwaysGroup.add(innerCurb);
+
+  // 로터리 중앙 잔디 정원 (Center Garden Island)
+  const centerGardenGeo = new THREE.CircleGeometry(13.2, 32);
+  const centerGardenMat = new THREE.MeshStandardMaterial({
+    color: 0x3ea82a,
+    roughness: 0.75,
+    side: THREE.DoubleSide
+  });
+  const centerGarden = new THREE.Mesh(centerGardenGeo, centerGardenMat);
+  centerGarden.rotation.x = -Math.PI / 2;
+  centerGarden.position.y = 0.33;
+  pathwaysGroup.add(centerGarden);
+
+  // 중앙 정원 가로수 야자수 4그루 (센터포인트 랜드마크)
+  const gardenAngles = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
+  gardenAngles.forEach((ang) => {
+    roadsideTreePositions.push(new THREE.Vector3(Math.cos(ang) * 6.5, 0, Math.sin(ang) * 6.5));
+  });
+
+  // 2. 가로등 생성 헬퍼 함수
+  const poleGeo = new THREE.CylinderGeometry(0.14, 0.22, 6.4, 10);
+  const baseGeo = new THREE.CylinderGeometry(0.42, 0.58, 0.45, 10);
+  const armGeo = new THREE.BoxGeometry(0.14, 0.14, 1.4);
+  const hoodGeo = new THREE.ConeGeometry(0.75, 0.4, 10);
+  const bulbGeo = new THREE.SphereGeometry(0.38, 12, 12);
+
+  function addStreetLamp(x, z, rotY = 0, hasLight = false) {
+    const lamp = new THREE.Group();
+    lamp.position.set(x, 0, z);
+    lamp.rotation.y = rotY;
+
+    // 기둥 베이스
+    const base = new THREE.Mesh(baseGeo, lampMetalMat);
+    base.position.y = 0.22;
+    base.castShadow = true;
+    lamp.add(base);
+
+    // 수직 기둥
+    const pole = new THREE.Mesh(poleGeo, lampMetalMat);
+    pole.position.y = 3.4;
+    pole.castShadow = true;
+    lamp.add(pole);
+
+    // 상단 암 (도로 쪽으로 뻗은 가로대)
+    const arm = new THREE.Mesh(armGeo, lampMetalMat);
+    arm.position.set(0, 6.4, 0.65);
+    lamp.add(arm);
+
+    // 램프 갓
+    const hood = new THREE.Mesh(hoodGeo, lampMetalMat);
+    hood.position.set(0, 6.2, 1.3);
+    lamp.add(hood);
+
+    // 발광 램프 전구
+    const bulb = new THREE.Mesh(bulbGeo, lampBulbMat);
+    bulb.position.set(0, 5.85, 1.3);
+    lamp.add(bulb);
+
+    // 렌즈 글로우 스프라이트
+    const glowMat = new THREE.SpriteMaterial({
+      map: glowTex,
+      color: 0xffe680,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const glowSprite = new THREE.Sprite(glowMat);
+    glowSprite.position.set(0, 5.85, 1.3);
+    glowSprite.scale.set(11.0, 11.0, 1.0);
+    lamp.add(glowSprite);
+
+    let light = null;
+    if (hasLight) {
+      light = new THREE.PointLight(0xffe082, 0.0, 48, 1.2);
+      light.position.set(0, 5.8, 1.3);
+      lamp.add(light);
+    }
+
+    pathwaysGroup.add(lamp);
+
+    streetLamps.push({
+      group: lamp,
+      sprite: glowSprite,
+      glowMat: glowMat,
+      light: light
+    });
+  }
+
+  // 로터리 4방향 가로등
+  for (let i = 0; i < 4; i++) {
+    const ang = (i / 4) * Math.PI * 2 + Math.PI * 0.25;
+    const lx = Math.cos(ang) * 26.5;
+    const lz = Math.sin(ang) * 26.5;
+    addStreetLamp(lx, lz, ang + Math.PI, true); // PointLight 장착
+  }
+
+  // 3. 부드러운 곡선 도로 생성 헬퍼 함수
+  function buildRibbonMesh(rawPoints, width = 13.0) {
+    const points3D = rawPoints.map(p => new THREE.Vector3(p.x, 0, p.z));
+    const curve = new THREE.CatmullRomCurve3(points3D);
+    const length = curve.getLength();
+    const segments = Math.max(16, Math.floor(length / 2.5));
+
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    const curbPositions = [];
+    const curbUvs = [];
+    const curbIndices = [];
+
+    const routeSampled = [];
+
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const pt = curve.getPoint(t);
+      const tangent = curve.getTangent(t).normalize();
+      const norm = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
+
+      routeSampled.push({ pt, norm });
+      sampledPathPoints.push(pt);
+
+      const halfW = width * 0.5;
+      const leftX = pt.x + norm.x * halfW;
+      const leftZ = pt.z + norm.z * halfW;
+      const rightX = pt.x - norm.x * halfW;
+      const rightZ = pt.z - norm.z * halfW;
+
+      const y = 0.32; // grass(0.0)보다 확실히 위에 배치하여 잔디 파묻힘 완벽 방지
+
+      positions.push(leftX, y, leftZ);
+      positions.push(rightX, y, rightZ);
+
+      const v = (t * length) / 22.0;
+      uvs.push(0, v);
+      uvs.push(1, v);
+
+      // 연석 (Curb, 높이 y = 0.42)
+      const curbY = 0.42;
+      const curbW = 0.8;
+      const curbOutLeftX = leftX + norm.x * curbW;
+      const curbOutLeftZ = leftZ + norm.z * curbW;
+      curbPositions.push(curbOutLeftX, curbY, curbOutLeftZ);
+      curbPositions.push(leftX, curbY, leftZ);
+      curbUvs.push(0, v);
+      curbUvs.push(1, v);
+
+      const curbOutRightX = rightX - norm.x * curbW;
+      const curbOutRightZ = rightZ - norm.z * curbW;
+      curbPositions.push(rightX, curbY, rightZ);
+      curbPositions.push(curbOutRightX, curbY, curbOutRightZ);
+      curbUvs.push(0, v);
+      curbUvs.push(1, v);
+    }
+
+    for (let i = 0; i < segments; i++) {
+      const a = i * 2;
+      const b = i * 2 + 1;
+      const c = (i + 1) * 2;
+      const d = (i + 1) * 2 + 1;
+
+      // ★★★ 상단(+Y)을 향하는 올바른 카운터클락와이즈(CCW) 와인딩 오더 ★★★
+      indices.push(a, c, b);
+      indices.push(b, c, d);
+
+      // Left curb
+      const ca = i * 4;
+      const cb = i * 4 + 1;
+      const cc = (i + 1) * 4;
+      const cd = (i + 1) * 4 + 1;
+      curbIndices.push(ca, cc, cb);
+      curbIndices.push(cb, cc, cd);
+
+      // Right curb
+      const cra = i * 4 + 2;
+      const crb = i * 4 + 3;
+      const crc = (i + 1) * 4 + 2;
+      const crd = (i + 1) * 4 + 3;
+      curbIndices.push(cra, crc, crb);
+      curbIndices.push(crb, crc, crd);
+    }
+
+    const roadGeo = new THREE.BufferGeometry();
+    roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    roadGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    roadGeo.setIndex(indices);
+    roadGeo.computeVertexNormals();
+
+    const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+    roadMesh.receiveShadow = true;
+    pathwaysGroup.add(roadMesh);
+
+    const curbGeo = new THREE.BufferGeometry();
+    curbGeo.setAttribute('position', new THREE.Float32BufferAttribute(curbPositions, 3));
+    curbGeo.setAttribute('uv', new THREE.Float32BufferAttribute(curbUvs, 2));
+    curbGeo.setIndex(curbIndices);
+    curbGeo.computeVertexNormals();
+
+    const curbMesh = new THREE.Mesh(curbGeo, curbMat);
+    curbMesh.receiveShadow = true;
+    pathwaysGroup.add(curbMesh);
+
+    return { routeSampled, length };
+  }
+
+  // 4. 6대 핵심 연결 도로 경로 정의
+  const routesData = [
+    // 1) 센터 로터리 ➔ 테니스 경기장 진입로
+    [
+      { x: -23, z: 0 },
+      { x: -52, z: 0 },
+      { x: -82, z: 0 }
+    ],
+    // 2) 센터 로터리 ➔ 볼링 경기장 진입로
+    [
+      { x: 16, z: -19 },
+      { x: 45, z: -55 },
+      { x: 75, z: -95 }
+    ],
+    // 3) 센터 로터리 ➔ 검술 경기장 진입로
+    [
+      { x: 16, z: 19 },
+      { x: 45, z: 55 },
+      { x: 75, z: 95 }
+    ],
+    // 4) 볼링 ➔ 검술 동쪽 해안 직통 대로 (Eastern Boulevard)
+    [
+      { x: 130, z: -72 },
+      { x: 146, z: -35 },
+      { x: 152, z: 0 },
+      { x: 146, z: 35 },
+      { x: 130, z: 72 }
+    ],
+    // 5) 테니스 ➔ 볼링 북쪽 해안선 곡선 대로 (Northern Coastal Curve)
+    [
+      { x: -105, z: -55 },
+      { x: -75, z: -105 },
+      { x: -20, z: -145 },
+      { x: 20, z: -158 },
+      { x: 52, z: -150 }
+    ],
+    // 6) 테니스 ➔ 검술 남쪽 해안선 곡선 대로 (Southern Coastal Curve)
+    [
+      { x: -105, z: 55 },
+      { x: -75, z: 105 },
+      { x: -20, z: 145 },
+      { x: 20, z: 158 },
+      { x: 52, z: 150 }
+    ]
+  ];
+
+  routesData.forEach((routePts) => {
+    const { routeSampled } = buildRibbonMesh(routePts, 13.0);
+
+    const lampSpacing = 28.0;
+    const treeSpacing = 34.0;
+
+    let lastLampDist = 8.0;
+    let lastTreeDist = 12.0;
+
+    let accumDist = 0;
+    for (let i = 0; i < routeSampled.length; i++) {
+      if (i > 0) {
+        accumDist += routeSampled[i].pt.distanceTo(routeSampled[i - 1].pt);
+      }
+
+      const item = routeSampled[i];
+      const halfW = 6.5;
+
+      // 가로등 배치 (좌우 교차 배치)
+      if (accumDist - lastLampDist >= lampSpacing) {
+        lastLampDist = accumDist;
+        const side = (streetLamps.length % 2 === 0) ? 1 : -1;
+        const lampX = item.pt.x + item.norm.x * (halfW + 1.4) * side;
+        const lampZ = item.pt.z + item.norm.z * (halfW + 1.4) * side;
+        const rotY = Math.atan2(-item.norm.x * side, -item.norm.z * side);
+        const hasLight = (streetLamps.length % 2 === 0);
+        addStreetLamp(lampX, lampZ, rotY, hasLight);
+      }
+
+      // 길 주변 가로수 야자수 위치 등록 ("길에는 나무가 없고 길주변에는 나무가 있어")
+      if (accumDist - lastTreeDist >= treeSpacing) {
+        lastTreeDist = accumDist;
+        // 길 왼쪽 야자수
+        roadsideTreePositions.push(new THREE.Vector3(
+          item.pt.x + item.norm.x * (halfW + 4.2 + Math.random() * 1.5),
+          0,
+          item.pt.z + item.norm.z * (halfW + 4.2 + Math.random() * 1.5)
+        ));
+        // 길 오른쪽 야자수
+        roadsideTreePositions.push(new THREE.Vector3(
+          item.pt.x - item.norm.x * (halfW + 4.2 + Math.random() * 1.5),
+          0,
+          item.pt.z - item.norm.z * (halfW + 4.2 + Math.random() * 1.5)
+        ));
+      }
+    }
+  });
+
+  // 5. 도로 충돌 검사 함수
+  function isPointOnRoad(x, z, margin = 6.0) {
+    // 중앙 로터리 검사
+    if (Math.hypot(x, z) < 25.5 + margin) return true;
+
+    // 경로 샘플 포인트들과의 최단 거리 검사
+    const threshold = 6.5 + margin;
+    const threshSq = threshold * threshold;
+    for (let i = 0; i < sampledPathPoints.length; i++) {
+      const p = sampledPathPoints[i];
+      const dx = x - p.x;
+      const dz = z - p.z;
+      if (dx * dx + dz * dz < threshSq) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return {
+    group: pathwaysGroup,
+    streetLamps,
+    lampBulbMaterial: lampBulbMat,
+    roadsideTreePositions,
+    isPointOnRoad
   };
 }

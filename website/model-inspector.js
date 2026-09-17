@@ -67,7 +67,6 @@ export class ModelInspectModalViewer {
     this.initScene();
     this.initLights();
     this.initControls();
-    this.loadModel('character');
 
     this.animate = this.animate.bind(this);
     requestAnimationFrame(this.animate);
@@ -142,10 +141,20 @@ export class ModelInspectModalViewer {
   }
 
   clearModel() {
+    this.currentLoadId = (this.currentLoadId || 0) + 1;
     if (this.currentObject) {
       this.scene.remove(this.currentObject);
       this.currentObject = null;
     }
+    // 기존에 씬에 남아있을 수 있는 모델(T-포즈 잔여물 등) 완전 스윕 제거
+    const toRemove = [];
+    this.scene.children.forEach((child) => {
+      if (!child.isLight && !child.isGridHelper) {
+        toRemove.push(child);
+      }
+    });
+    toRemove.forEach((obj) => this.scene.remove(obj));
+
     if (this.mixer) {
       this.mixer.stopAllAction();
       this.mixer = null;
@@ -157,6 +166,7 @@ export class ModelInspectModalViewer {
   loadModel(type) {
     this.currentModelType = type;
     this.clearModel();
+    const thisLoadId = this.currentLoadId;
 
     const fbxLoader = new FBXLoader();
 
@@ -165,6 +175,7 @@ export class ModelInspectModalViewer {
     } else if (type === 'racket') {
       this.racketMeshes = [];
       fbxLoader.load('assets/models/racket/Tennis_Racket.fbx', (racket) => {
+        if (thisLoadId !== this.currentLoadId) return;
         this.currentObject = racket;
         const frameTex = this.textureLoader.load('assets/models/racket/Texture/racket_blue.png');
         const strTex = this.textureLoader.load('assets/models/racket/Texture/Tennis_Racket_Tennis_Racket_Strings_AlbedoTransparency.png');
@@ -197,6 +208,7 @@ export class ModelInspectModalViewer {
     } else if (type === 'ball') {
       this.isBouncing = false;
       fbxLoader.load('assets/models/ball/tennis_ball.fbx', (ball) => {
+        if (thisLoadId !== this.currentLoadId) return;
         this.currentObject = ball;
         this.ballMesh = ball;
 
@@ -219,6 +231,7 @@ export class ModelInspectModalViewer {
       });
     } else if (type === 'court') {
       fbxLoader.load('assets/models/court/Tennis_.fbx', (court) => {
+        if (thisLoadId !== this.currentLoadId) return;
         this.currentObject = court;
         court.rotation.y = Math.PI / 2;
         const courtTex = this.textureLoader.load('assets/models/court/Texture/Tennis__Tennis_AlbedoTransparency.png');
@@ -241,6 +254,7 @@ export class ModelInspectModalViewer {
   loadCharacterMotion(motionKey = 'reap_swing') {
     this.clearModel();
     this.currentModelType = 'character';
+    const thisLoadId = this.currentLoadId;
 
     const motionMap = {
       reap_swing: { path: 'assets/models/character/character.glb', type: 'gltf' },
@@ -255,6 +269,7 @@ export class ModelInspectModalViewer {
     if (target.type === 'gltf') {
       const gltfLoader = new GLTFLoader();
       gltfLoader.load(target.path, (gltf) => {
+        if (thisLoadId !== this.currentLoadId) return; // 이전 비동기 호출 잔여물 무시
         const char = gltf.scene;
         this.currentObject = char;
         char.traverse((c) => {
@@ -275,6 +290,7 @@ export class ModelInspectModalViewer {
     } else {
       const fbxLoader = new FBXLoader();
       fbxLoader.load(target.path, (charFbx) => {
+        if (thisLoadId !== this.currentLoadId) return;
         this.currentObject = charFbx;
         charFbx.scale.setScalar(0.015);
         charFbx.traverse((c) => {
